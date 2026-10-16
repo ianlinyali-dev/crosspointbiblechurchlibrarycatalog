@@ -1,7 +1,7 @@
 let allBooks = [];
 let filteredBooks = [];
 let displayedCount = 0;
-const BOOKS_PER_PAGE = 6; // Cards loaded per batch
+const BOOKS_PER_PAGE = 6;
 
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('current-year').textContent = new Date().getFullYear();
@@ -59,6 +59,12 @@ function loadMoreBooks() {
         const isBorrowable = book.classification.toLowerCase() === 'borrowable';
         const badgeClass = isBorrowable ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800';
 
+        // Truncate description for card snippet preview (approx 120 characters / ~20 words)
+        let shortDesc = book.description || '';
+        if (shortDesc.length > 120) {
+            shortDesc = shortDesc.substring(0, 120).trim() + '...';
+        }
+
         const card = document.createElement('div');
         card.className = "bg-white border border-church-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col justify-between group cursor-pointer animate-in fade-in duration-300";
         card.onclick = () => openModal(book);
@@ -78,12 +84,12 @@ function loadMoreBooks() {
                     </div>
                     <h3 class="font-bold text-church-900 text-base leading-snug group-hover:text-church-600 transition">${book.title}</h3>
                     <p class="text-xs text-church-700 font-medium">By ${book.author}</p>
-                    <p class="text-xs text-church-600 line-clamp-2 pt-1 leading-relaxed">${book.description || ''}</p>
+                    <p class="text-xs text-church-600 pt-1 leading-relaxed">${shortDesc}</p>
                 </div>
             </div>
             <div class="px-5 pb-5 pt-3 border-t border-church-100 flex items-center justify-between text-xs">
                 <span class="text-church-800 font-medium"><i class="fa-solid fa-copy mr-1 text-church-600"></i> ${book.copies} available</span>
-                <span class="text-church-600 font-semibold group-hover:translate-x-1 transition-transform">Read Excerpt &rarr;</span>
+                <span class="text-church-600 font-semibold group-hover:translate-x-1 transition-transform">Read More &rarr;</span>
             </div>
         `;
         grid.appendChild(card);
@@ -135,8 +141,8 @@ function openModal(book) {
         classificationEl.className = "inline-block px-2 py-0.5 rounded text-xs font-semibold bg-amber-100 text-amber-800";
     }
 
-    document.getElementById('modal-description').textContent = book.description || '';
-    document.getElementById('modal-excerpt').textContent = book.excerpt || 'No excerpt available for this book yet.';
+    // Displays the full description when modal is clicked
+    document.getElementById('modal-description').textContent = book.description || 'No description available for this book yet.';
     document.getElementById('book-modal').classList.remove('hidden');
 }
 
