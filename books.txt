@@ -1,0 +1,50 @@
+[
+  {
+    "id": 1,
+    "title": "Systematic Theology: An Introduction to Biblical Doctrine",
+    "author": "Wayne Grudem",
+    "category": "Prolegomena",
+    "publicationDate": "1994",
+    "copies": 3,
+    "classification": "Borrowable",
+    "excerpt": "An exceptionally clear, thorough, and accessible introduction to systematic theology from a Reformed, evangelical standpoint, emphasizing scriptural support and practical application.",
+    "image": "https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=600&auto=format&fit=crop",
+    "keywords": ["doctrine", "theology", "grudem", "bible study"]
+  },
+  {
+    "id": 2,
+    "title": "The Holiness of God",
+    "author": "R.C. Sproul",
+    "category": "Theology Proper",
+    "publicationDate": "1985",
+    "copies": 2,
+    "classification": "Borrowable",
+    "excerpt": "R.C. Sproul's classic work helps readers understand God's majesty and holiness, shaking up ordinary perspectives of divine character and illuminating why holiness is essential to the Gospel.",
+    "image": "https://images.unsplash.com/photo-1532012197267-da84d127e765?q=80&w=600&auto=format&fit=crop",
+    "keywords": ["sproul", "holiness", "character of god", "reformed"]
+  },
+  {
+    "id": 3,
+    "title": "The Bruised Reed",
+    "author": "Richard Sibbes",
+    "category": "Soteriology",
+    "publicationDate": "1630 (Modern Reprint)",
+    "copies": 1,
+    "classification": "Onsite Only",
+    "excerpt": "A masterwork of Puritan comfort that displays Christ’s gentle heart towards weak and struggling believers, encouraging discouraged souls with the tender mercy of Jesus.",
+    "image": "https://images.unsplash.com/photo-1512820790803-83ca734da794?q=80&w=600&auto=format&fit=crop",
+    "keywords": ["puritan", "comfort", "grace", "sibbes"]
+  },
+  {
+    "id": 4,
+    "title": "The Deep Things of God",
+    "author": "Fred G. Sanders",
+    "category": "Theology Proper",
+    "publicationDate": "2010",
+    "copies": 4,
+    "classification": "Borrowable",
+    "excerpt": "An engaging invitation to experience Christian theology through the lens of the Trinity, connecting deep doctrines directly to everyday Christian joy and worship.",
+    "image": "https://images.unsplash.com/photo-1495640388908-05fa85288e61?q=80&w=600&auto=format&fit=crop",
+    "keywords": ["trinity", "joy", "sanders", "doctrine"]
+  }
+]
