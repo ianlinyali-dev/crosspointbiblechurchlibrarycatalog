@@ -41,7 +41,7 @@
                   <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
                   <span class="relative inline-flex rounded-full h-2 w-2 bg-amber-600"></span>
                 </span>
-                <p class="truncate"><strong class="font-semibold">New Arrival Alert:</strong> Several new volumes on Systematic Theology and Church History have just been added to the catalog!</p>
+                <p class="truncate"><strong class="font-semibold">New Arrival Alert:</strong> Several new volumes on Systematic Theology and Commentaries have just been added to the catalog!</p>
             </div>
             <button onclick="document.getElementById('alert-banner').style.display='none'" class="text-amber-700 hover:text-amber-900 ml-4 font-bold text-lg leading-none focus:outline-none" title="Close announcement">&times;</button>
         </div>
@@ -51,7 +51,6 @@
     <header class="bg-white border-b border-church-200 sticky top-0 z-40 shadow-sm">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
             <div class="flex items-center space-x-3.5">
-                <!-- Fixed Logo Container (Uncropped, clean background box) -->
                 <div class="w-12 h-12 bg-white border border-church-200 rounded-xl flex items-center justify-center p-1 shadow-sm overflow-hidden">
                     <img src="logo.png" alt="Crosspoint Bible Church Logo" class="w-full h-full object-contain">
                 </div>
@@ -66,12 +65,10 @@
                 <a href="#about-us" class="hover:text-church-600 transition-colors">About Us</a>
                 <a href="https://forms.gle/uEmyzCdZ3qiRpFyv9" target="_blank" class="bg-church-800 hover:bg-church-900 text-white px-4 py-2 rounded-lg shadow transition-all">Request Book Form</a>
             </nav>
-            <!-- Mobile Menu Toggle Button -->
             <button id="menu-btn" class="md:hidden text-church-800 focus:outline-none p-2">
                 <i class="fa-solid fa-bars text-2xl"></i>
             </button>
         </div>
-        <!-- Mobile Nav Menu -->
         <div id="mobile-menu" class="hidden md:hidden bg-white border-b border-church-200 px-4 pt-2 pb-4 space-y-3">
             <a href="#catalog" class="block py-2 text-church-900 hover:bg-church-50 rounded px-2">Catalog</a>
             <a href="#about-reading" class="block py-2 text-church-900 hover:bg-church-50 rounded px-2">Why Read?</a>
@@ -80,13 +77,12 @@
         </div>
     </header>
 
-    <!-- Hero Section with Scripture & Reformed Quote -->
+    <!-- Hero Section -->
     <section class="bg-gradient-to-b from-church-100 to-church-50 py-12 px-4 sm:px-6 lg:px-8 border-b border-church-200">
         <div class="max-w-4xl mx-auto text-center space-y-6">
             <span class="inline-block bg-church-200 text-church-800 text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wider">Preaching Christ — The Joy of All Nations</span>
             <h2 class="text-3xl sm:text-4xl font-extrabold text-church-900 tracking-tight">Equipping the Saints Through Sound Doctrine</h2>
             
-            <!-- Scripture & Quote Card -->
             <div class="grid md:grid-cols-2 gap-6 text-left mt-8">
                 <div class="bg-white/85 backdrop-blur border border-church-200 p-6 rounded-2xl shadow-sm">
                     <p class="text-xs uppercase tracking-wider text-church-600 font-bold mb-2"><i class="fa-solid fa-quote-left mr-1"></i> Scripture Inspiration</p>
@@ -108,26 +104,26 @@
         <!-- Search & Filter Controls -->
         <div class="bg-white p-6 rounded-2xl shadow-sm border border-church-200 mb-8 space-y-4">
             <div class="flex flex-col md:flex-row gap-4 items-center justify-between">
-                <!-- Search Input -->
                 <div class="relative w-full md:w-1/2">
                     <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-church-600">
                         <i class="fa-solid fa-search"></i>
                     </span>
                     <input type="text" id="search-input" placeholder="Search by book name, author, or keyword..." class="w-full pl-10 pr-4 py-3 bg-church-50 border border-church-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-church-600 text-sm transition">
                 </div>
-                <!-- Category Dropdown (Systematic Theology System) -->
                 <div class="w-full md:w-1/3">
                     <select id="category-filter" class="w-full px-4 py-3 bg-church-50 border border-church-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-church-600 text-sm transition">
-                        <option value="">All Categories (Systematic Theology)</option>
-                        <option value="Prolegomena">Prolegomena (Introduction to Theology)</option>
-                        <option value="Bibliology">Bibliology (The Word of God)</option>
-                        <option value="Theology Proper">Theology Proper (The Doctrine of God)</option>
-                        <option value="Christology">Christology (The Person & Work of Christ)</option>
-                        <option value="Pneumatology">Pneumatology (The Holy Spirit)</option>
-                        <option value="Anthropology & Hamartiology">Anthropology & Hamartiology (Man & Sin)</option>
-                        <option value="Soteriology">Soteriology (Salvation & Grace)</option>
-                        <option value="Ecclesiology">Ecclesiology (The Church)</option>
-                        <option value="Eschatology">Eschatology (Last Things)</option>
+                        <option value="">All Categories</option>
+                        <option value="Systematic Theology">Systematic Theology</option>
+                        <option value="Biblical Theology">Biblical Theology</option>
+                        <option value="Commentaries">Commentaries</option>
+                        <option value="Lexicons">Lexicons</option>
+                        <option value="Bibles">Bibles</option>
+                        <option value="Dictionaries">Dictionaries</option>
+                        <option value="Practical Theology">Practical Theology</option>
+                        <option value="Ethics">Ethics</option>
+                        <option value="Articles">Articles</option>
+                        <option value="Kids">Kids</option>
+                        <option value="Others">Others</option>
                     </select>
                 </div>
             </div>
@@ -135,18 +131,24 @@
 
         <!-- Book Cards Grid -->
         <div id="book-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            <!-- Loading Spinner State (Replaced by JS when loaded) -->
             <div id="loading-state" class="col-span-full text-center py-16 text-church-600">
                 <i class="fa-solid fa-spinner fa-spin text-3xl mb-2"></i>
                 <p class="text-sm">Loading library catalog...</p>
             </div>
         </div>
 
+        <!-- Load More Pagination Button -->
+        <div id="load-more-container" class="hidden text-center mt-12">
+            <button id="load-more-btn" onclick="loadMoreBooks()" class="bg-church-100 hover:bg-church-200 text-church-900 border border-church-300 font-semibold px-6 py-3 rounded-xl text-sm transition shadow-sm">
+                Load More Books <i class="fa-solid fa-chevron-down ml-2 text-xs"></i>
+            </button>
+        </div>
+
         <!-- No Results Fallback Message -->
         <div id="no-results" class="hidden text-center py-16">
             <i class="fa-solid fa-face-frown text-4xl text-church-600 mb-3"></i>
             <h3 class="text-lg font-bold text-church-900">No books found matching your criteria</h3>
-            <p class="text-sm text-church-600 mt-1">Try tweaking your search keywords or choosing a different theological category.</p>
+            <p class="text-sm text-church-600 mt-1">Try tweaking your search keywords or choosing a different category.</p>
         </div>
     </main>
 
@@ -160,23 +162,20 @@
         </div>
     </section>
 
-    <!-- About Us & Contact Footer -->
+    <!-- Footer -->
     <footer id="about-us" class="bg-church-900 text-church-100 pt-12 pb-8 border-t border-church-800">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
-            <!-- Col 1: Mission -->
             <div class="space-y-3">
                 <h4 class="text-white font-bold text-base tracking-wide border-b border-church-800 pb-2">Crosspoint Bible Church</h4>
                 <p class="text-sm text-church-200 italic">"To preach Christ the joy of all nations."</p>
                 <p class="text-xs text-church-300 leading-relaxed">Dedicated to expository preaching, sound reformed framework, and robust Christian community fellowship.</p>
             </div>
-            <!-- Col 2: Location & Contact -->
             <div class="space-y-3">
                 <h4 class="text-white font-bold text-base tracking-wide border-b border-church-800 pb-2">Location & Contact</h4>
                 <p class="text-xs text-church-200 flex items-center"><i class="fa-solid fa-location-dot w-5 text-amber-500"></i> Kiamunyi (Zaburi), Nakuru, Kenya</p>
                 <p class="text-xs text-church-200 flex items-center"><i class="fa-solid fa-phone w-5 text-amber-500"></i> +254 704 486 616</p>
                 <p class="text-xs text-church-200 flex items-center"><i class="fa-solid fa-envelope w-5 text-amber-500"></i> cbcnakuru@gmail.com</p>
             </div>
-            <!-- Col 3: Website Info / Policies -->
             <div class="space-y-3">
                 <h4 class="text-white font-bold text-base tracking-wide border-b border-church-800 pb-2">Policies & Access</h4>
                 <p class="text-xs text-church-300 leading-relaxed">
@@ -202,18 +201,23 @@
             </div>
             <div class="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
                 <div class="flex flex-col sm:flex-row gap-4">
-                    <img id="modal-img" src="" alt="Book Cover" class="w-32 h-44 object-cover rounded-lg shadow border border-church-200 mx-auto sm:mx-0">
+                    <img id="modal-img" src="" alt="Book Cover" class="w-32 h-44 object-cover rounded-lg shadow border border-church-200 mx-auto sm:mx-0" loading="lazy">
                     <div class="space-y-2 text-sm">
                         <p><strong class="text-church-700">Author:</strong> <span id="modal-author"></span></p>
                         <p><strong class="text-church-700">Category:</strong> <span id="modal-category" class="inline-block bg-church-100 text-church-800 text-xs px-2 py-0.5 rounded"></span></p>
                         <p><strong class="text-church-700">Published:</strong> <span id="modal-pubdate"></span></p>
+                        <p><strong class="text-church-700">Pages:</strong> <span id="modal-pages"></span></p>
                         <p><strong class="text-church-700">Copies Available:</strong> <span id="modal-copies" class="font-semibold text-emerald-700"></span></p>
                         <p><strong class="text-church-700">Access Rule:</strong> <span id="modal-classification" class="inline-block px-2 py-0.5 rounded text-xs font-semibold"></span></p>
                     </div>
                 </div>
                 <div>
-                    <h4 class="text-xs font-bold uppercase tracking-wider text-church-600 mb-1">Excerpt / Summary</h4>
-                    <p id="modal-excerpt" class="text-xs sm:text-sm text-church-800 leading-relaxed bg-church-50 p-3 rounded-xl border border-church-200"></p>
+                    <h4 class="text-xs font-bold uppercase tracking-wider text-church-600 mb-1">Description</h4>
+                    <p id="modal-description" class="text-xs sm:text-sm text-church-800 leading-relaxed bg-church-50 p-3 rounded-xl border border-church-200"></p>
+                </div>
+                <div>
+                    <h4 class="text-xs font-bold uppercase tracking-wider text-church-600 mb-1">Excerpt</h4>
+                    <p id="modal-excerpt" class="text-xs sm:text-sm text-church-800 leading-relaxed bg-church-50 p-3 rounded-xl border border-church-200 italic"></p>
                 </div>
             </div>
             <div class="bg-church-50 px-6 py-4 border-t border-church-200 flex justify-end space-x-3">
@@ -225,23 +229,20 @@
         </div>
     </div>
 
-    <!-- General Info Modal (For Terms & Privacy) -->
+    <!-- Policy Modal -->
     <div id="policy-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl border border-church-200">
             <div class="bg-church-100 px-6 py-4 flex items-center justify-between border-b border-church-200">
                 <h3 id="policy-modal-title" class="font-bold text-church-900 text-lg">Policy Title</h3>
                 <button onclick="closePolicyModal()" class="text-church-600 hover:text-church-900 text-xl font-bold p-1 focus:outline-none">&times;</button>
             </div>
-            <div id="policy-modal-body" class="p-6 space-y-4 max-h-[75vh] overflow-y-auto text-xs sm:text-sm text-church-800 leading-relaxed">
-                <!-- Injected text -->
-            </div>
+            <div id="policy-modal-body" class="p-6 space-y-4 max-h-[75vh] overflow-y-auto text-xs sm:text-sm text-church-800 leading-relaxed"></div>
             <div class="bg-church-50 px-6 py-4 border-t border-church-200 flex justify-end">
                 <button onclick="closePolicyModal()" class="px-5 py-2 bg-church-800 hover:bg-church-900 text-white rounded-xl text-sm font-medium shadow transition">Got it</button>
             </div>
         </div>
     </div>
 
-    <!-- Script File Integration -->
     <script src="script.js"></script>
 </body>
 </html>
