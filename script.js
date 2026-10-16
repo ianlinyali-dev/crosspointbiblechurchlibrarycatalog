@@ -1,17 +1,17 @@
 let allBooks = [];
+let filteredBooks = [];
+let displayedCount = 0;
+const BOOKS_PER_PAGE = 6; // Cards loaded per batch
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Set dynamic footer copyright year
     document.getElementById('current-year').textContent = new Date().getFullYear();
 
-    // Mobile menu toggle logic
     const menuBtn = document.getElementById('menu-btn');
     const mobileMenu = document.getElementById('mobile-menu');
     menuBtn.addEventListener('click', () => {
         mobileMenu.classList.toggle('hidden');
     });
 
-    // Load book data from books.json
     fetch('books.json')
         .then(response => {
             if (!response.ok) throw new Error('Network response was not ok');
@@ -19,7 +19,8 @@ document.addEventListener('DOMContentLoaded', () => {
         })
         .then(data => {
             allBooks = data;
-            displayBooks(allBooks);
+            filteredBooks = data;
+            initCatalog();
         })
         .catch(error => {
             console.error('Error loading book catalog:', error);
@@ -29,61 +30,79 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>`;
         });
 
-    // Setup Search & Category Filter Listeners
-    document.getElementById('search-input').addEventListener('input', filterBooks);
-    document.getElementById('category-filter').addEventListener('change', filterBooks);
+    document.getElementById('search-input').addEventListener('input', handleSearchAndFilter);
+    document.getElementById('category-filter').addEventListener('change', handleSearchAndFilter);
 });
 
-// Render cards dynamically into the grid
-function displayBooks(books) {
-    const grid = document.getElementById('book-grid');
-    const noResults = document.getElementById('no-results');
-    grid.innerHTML = '';
+function initCatalog() {
+    displayedCount = 0;
+    document.getElementById('book-grid').innerHTML = '';
+    loadMoreBooks();
+}
 
-    if (books.length === 0) {
+function loadMoreBooks() {
+    const grid = document.getElementById('book-grid');
+    const loadMoreContainer = document.getElementById('load-more-container');
+    const noResults = document.getElementById('no-results');
+
+    if (filteredBooks.length === 0) {
         noResults.classList.remove('hidden');
+        loadMoreContainer.classList.add('hidden');
         return;
     } else {
         noResults.classList.add('hidden');
     }
 
-    books.forEach(book => {
+    const nextBatch = filteredBooks.slice(displayedCount, displayedCount + BOOKS_PER_PAGE);
+    
+    nextBatch.forEach(book => {
         const isBorrowable = book.classification.toLowerCase() === 'borrowable';
         const badgeClass = isBorrowable ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800';
 
         const card = document.createElement('div');
-        card.className = "bg-white border border-church-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col justify-between group cursor-pointer";
+        card.className = "bg-white border border-church-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col justify-between group cursor-pointer animate-in fade-in duration-300";
         card.onclick = () => openModal(book);
 
         card.innerHTML = `
             <div>
                 <div class="h-56 bg-church-100 overflow-hidden relative">
-                    <img src="${book.image}" alt="${book.title}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+                    <img src="${book.image}" alt="${book.title}" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
                     <span class="absolute top-3 right-3 text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm ${badgeClass}">
                         ${book.classification}
                     </span>
                 </div>
                 <div class="p-5 space-y-2">
-                    <span class="text-xs font-medium text-church-600 uppercase tracking-wide">${book.category}</span>
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="font-medium text-church-600 uppercase tracking-wide">${book.category}</span>
+                        <span class="text-church-500"><i class="fa-solid fa-book-open mr-1"></i>${book.pages} pages</span>
+                    </div>
                     <h3 class="font-bold text-church-900 text-base leading-snug group-hover:text-church-600 transition">${book.title}</h3>
-                    <p class="text-xs text-church-700">By ${book.author}</p>
+                    <p class="text-xs text-church-700 font-medium">By ${book.author}</p>
+                    <p class="text-xs text-church-600 line-clamp-2 pt-1 leading-relaxed">${book.description || ''}</p>
                 </div>
             </div>
-            <div class="px-5 pb-5 pt-2 border-t border-church-100 flex items-center justify-between text-xs">
+            <div class="px-5 pb-5 pt-3 border-t border-church-100 flex items-center justify-between text-xs">
                 <span class="text-church-800 font-medium"><i class="fa-solid fa-copy mr-1 text-church-600"></i> ${book.copies} available</span>
-                <span class="text-church-600 font-semibold group-hover:translate-x-1 transition-transform">Details &rarr;</span>
+                <span class="text-church-600 font-semibold group-hover:translate-x-1 transition-transform">Read Excerpt &rarr;</span>
             </div>
         `;
         grid.appendChild(card);
     });
+
+    displayedCount += nextBatch.length;
+
+    if (displayedCount >= filteredBooks.length) {
+        loadMoreContainer.classList.add('hidden');
+    } else {
+        loadMoreContainer.classList.remove('hidden');
+    }
 }
 
-// Filter engine checking text inputs and category dropdown selections
-function filterBooks() {
+function handleSearchAndFilter() {
     const query = document.getElementById('search-input').value.toLowerCase().trim();
     const selectedCategory = document.getElementById('category-filter').value;
 
-    const filtered = allBooks.filter(book => {
+    filteredBooks = allBooks.filter(book => {
         const matchesQuery = 
             book.title.toLowerCase().includes(query) ||
             book.author.toLowerCase().includes(query) ||
@@ -95,16 +114,16 @@ function filterBooks() {
         return matchesQuery && matchesCategory;
     });
 
-    displayBooks(filtered);
+    initCatalog();
 }
 
-// Book Details Modal handling logic
 function openModal(book) {
     document.getElementById('modal-title').textContent = book.title;
     document.getElementById('modal-img').src = book.image;
     document.getElementById('modal-author').textContent = book.author;
     document.getElementById('modal-category').textContent = book.category;
     document.getElementById('modal-pubdate').textContent = book.publicationDate;
+    document.getElementById('modal-pages').textContent = book.pages + " pages";
     document.getElementById('modal-copies').textContent = book.copies;
     
     const classificationEl = document.getElementById('modal-classification');
@@ -116,7 +135,8 @@ function openModal(book) {
         classificationEl.className = "inline-block px-2 py-0.5 rounded text-xs font-semibold bg-amber-100 text-amber-800";
     }
 
-    document.getElementById('modal-excerpt').textContent = book.excerpt;
+    document.getElementById('modal-description').textContent = book.description || '';
+    document.getElementById('modal-excerpt').textContent = book.excerpt || 'No excerpt available for this book yet.';
     document.getElementById('book-modal').classList.remove('hidden');
 }
 
@@ -124,7 +144,6 @@ function closeModal() {
     document.getElementById('book-modal').classList.add('hidden');
 }
 
-// Terms of Service & Privacy Policy Modal Handling
 function openPolicyModal(type) {
     const modalTitle = document.getElementById('policy-modal-title');
     const modalBody = document.getElementById('policy-modal-body');
@@ -155,14 +174,9 @@ function closePolicyModal() {
     document.getElementById('policy-modal').classList.remove('flex');
 }
 
-// Close modals when clicking outside window pane
 window.onclick = function(event) {
     const bookModal = document.getElementById('book-modal');
     const policyModal = document.getElementById('policy-modal');
-    if (event.target === bookModal) {
-        closeModal();
-    }
-    if (event.target === policyModal) {
-        closePolicyModal();
-    }
+    if (event.target === bookModal) closeModal();
+    if (event.target === policyModal) closePolicyModal();
 }
