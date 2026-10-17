@@ -59,7 +59,6 @@ function loadMoreBooks() {
         const isBorrowable = book.classification.toLowerCase() === 'borrowable';
         const badgeClass = isBorrowable ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800';
 
-        // Truncate description for card snippet preview (approx 120 characters / ~20 words)
         let shortDesc = book.description || '';
         if (shortDesc.length > 120) {
             shortDesc = shortDesc.substring(0, 120).trim() + '...';
@@ -71,8 +70,9 @@ function loadMoreBooks() {
 
         card.innerHTML = `
             <div>
-                <div class="h-56 bg-church-100 overflow-hidden relative">
-                    <img src="${book.image}" alt="${book.title}" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+                <!-- Changed object-cover to object-contain so full 3:4 book cover is visible without cropping -->
+                <div class="h-64 bg-church-50 overflow-hidden relative p-2 flex items-center justify-center border-b border-church-100">
+                    <img src="${book.image}" alt="${book.title}" loading="lazy" class="w-full h-full object-contain group-hover:scale-105 transition duration-300 drop-shadow-sm">
                     <span class="absolute top-3 right-3 text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm ${badgeClass}">
                         ${book.classification}
                     </span>
@@ -134,14 +134,31 @@ function openModal(book) {
     
     const classificationEl = document.getElementById('modal-classification');
     classificationEl.textContent = book.classification;
+
+    const borrowBtn = document.getElementById('modal-borrow-btn');
+
     if(book.classification.toLowerCase() === 'borrowable') {
         classificationEl.className = "inline-block px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800";
-        document.getElementById('modal-borrow-btn').style.display = "flex";
+        borrowBtn.style.display = "flex";
+        borrowBtn.href = "https://forms.gle/uEmyzCdZ3qiRpFyv9";
+        borrowBtn.target = "_blank";
+        borrowBtn.className = "px-5 py-2 bg-church-800 hover:bg-church-900 text-white rounded-xl text-sm font-medium shadow transition flex items-center space-x-2";
+        borrowBtn.innerHTML = `<span>Fill Borrow Form</span> <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>`;
+        borrowBtn.onclick = null; // Normal link click behavior
     } else {
+        // Onsite Only restriction settings
         classificationEl.className = "inline-block px-2 py-0.5 rounded text-xs font-semibold bg-amber-100 text-amber-800";
+        borrowBtn.style.display = "flex";
+        borrowBtn.href = "#";
+        borrowBtn.removeAttribute("target");
+        borrowBtn.className = "px-5 py-2 bg-amber-700 hover:bg-amber-800 text-white rounded-xl text-sm font-medium shadow transition flex items-center space-x-2";
+        borrowBtn.innerHTML = `<span>Read Room Only (Not Borrowable)</span> <i class="fa-solid fa-triangle-exclamation text-xs"></i>`;
+        borrowBtn.onclick = (e) => {
+            e.preventDefault();
+            alert("This book is classified as 'Onsite Only' and cannot be borrowed out of the church library premises. Please read it within the designated reading room at Crosspoint Bible Church, Kiamunyi.");
+        };
     }
 
-    // Displays the full description when modal is clicked
     document.getElementById('modal-description').textContent = book.description || 'No description available for this book yet.';
     document.getElementById('book-modal').classList.remove('hidden');
 }
