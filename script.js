@@ -16,13 +16,13 @@ let currentUser = JSON.parse(localStorage.getItem('cbc_user')) || null;
 let isLibrarianActive = sessionStorage.getItem('cbc_librarian_active') === 'true';
 let activeBookForAction = null;
 
-// Modal Action Targets
+// Modal Targets
 let targetIssueBorrow = null;
 let targetReturnBorrow = null;
 let targetEditMember = null;
 let currentCirculationFilter = 'All';
 
-// Admin / Church Library Settings
+// Admin Settings
 let churchLibrarySettings = JSON.parse(localStorage.getItem('cbc_admin_settings')) || {
     adminName: "Library Coordinator",
     adminPhone: "+254 704 486 616",
@@ -52,27 +52,40 @@ function cleanDate(val) {
     return str;
 }
 
-// Helper: Formats time cleanly without 1899-12-30 bug
+// Helper: Clean time formatting
 function cleanTime(val) {
     if (!val) return '10:00';
     let str = String(val).trim();
-    // If Google Sheets passed it as 1899-12-30T10:00:00.000Z
     if (str.includes('T')) {
         const timePart = str.split('T')[1];
         if (timePart) return timePart.substring(0, 5);
     }
-    if (str.includes('1899-12-30')) {
-        return '10:00';
-    }
+    if (str.includes('1899-12-30')) return '10:00';
     return str.substring(0, 5);
 }
 
-// Helper: Retrieves member's current phone dynamically
-function getMemberCurrentPhone(memberId, fallbackPhone) {
-    const m = allMembers.find(mem => (mem.MemberID || '').toString().toUpperCase() === (memberId || '').toString().toUpperCase());
-    if (m && m.Phone && m.Phone.trim() !== '') return m.Phone.trim();
-    if (fallbackPhone && fallbackPhone.trim() !== '') return fallbackPhone.trim();
-    return null;
+// Helper: Phone standardizer
+function formatPhoneForWhatsApp(phone) {
+    if (!phone) return null;
+    let clean = String(phone).replace(/[^0-9]/g, '');
+    if (clean.startsWith('0')) clean = '254' + clean.substring(1);
+    else if (!clean.startsWith('254') && clean.length === 9) clean = '254' + clean;
+    return clean.length >= 10 ? clean : null;
+}
+
+// DYNAMIC INVENTORY SELF-CHECK
+// Calculates available copies directly: Total - Active/Approved Loans
+function calculateAvailableCopies(bookId, fallbackCopies) {
+    const book = allBooks.find(b => b.id == bookId);
+    const total = book ? (parseInt(book.totalCopies) || parseInt(book.copies) || 1) : (parseInt(fallbackCopies) || 1);
+
+    const activeLoans = allBorrows.filter(b => 
+        b.BookID == bookId && 
+        b.Type !== 'Onsite' && 
+        ['Approved', 'Active'].includes((b.Status || '').trim())
+    ).length;
+
+    return Math.max(0, total - activeLoans);
 }
 
 function fetchLibraryData() {
@@ -93,7 +106,7 @@ function fetchLibraryData() {
             allBorrows = data.borrows || [];
             allGroups = data.groups || [];
 
-            // Re-sync current logged in user with fresh sheet data
+            // Re-sync current user
             if (currentUser) {
                 const refreshed = allMembers.find(m => (m.MemberID || '').toString().toUpperCase() === currentUser.id.toUpperCase());
                 if (refreshed) {
@@ -124,6 +137,7 @@ function fetchLibraryData() {
 
             checkUserDueAlerts();
             renderCirculationCounts();
+            updateGroupBadges();
             if (isLibrarianActive) renderAdminTables();
         })
         .catch(err => {
@@ -139,13 +153,15 @@ function fetchLibraryData() {
 }
 
 function normalizeBook(raw) {
+    const total = parseInt(raw.TotalCopies) || parseInt(raw.copies) || 1;
     return {
         id: raw.id || raw.BookID || 1,
         title: raw.title || raw.Title || 'Untitled',
         author: raw.author || raw.Author || 'Unknown Author',
         category: raw.category || raw.Category || 'General',
         publicationDate: raw.publicationDate || raw.PublicationDate || 'N/A',
-        copies: (raw.AvailableCopies !== undefined && raw.AvailableCopies !== "") ? parseInt(raw.AvailableCopies) : (parseInt(raw.copies) || 1),
+        totalCopies: total,
+        copies: total, // Dynamically computed during render
         pages: raw.pages || raw.Pages || 'N/A',
         classification: raw.classification || raw.Classification || 'Borrowable',
         description: raw.description || raw.Description || '',
@@ -179,7 +195,9 @@ function loadMoreBooks() {
     nextBatch.forEach(book => {
         const isBorrowable = (book.classification || '').toLowerCase().includes('borrowable');
         const badgeClass = isBorrowable ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800';
-        const copies = parseInt(book.copies) || 0;
+        
+        // DYNAMIC INVENTORY SELF-CHECK
+        const copies = calculateAvailableCopies(book.id, book.copies);
 
         let shortDesc = book.description || '';
         if (shortDesc.length > 110) shortDesc = shortDesc.substring(0, 110).trim() + '...';
@@ -222,7 +240,7 @@ function loadMoreBooks() {
             </div>
             <div class="px-5 pb-5 pt-3 border-t border-church-100 flex items-center justify-between text-xs">
                 <span class="${copies > 0 ? 'text-church-800' : 'text-red-600 font-bold'}">
-                    <i class="fa-solid fa-copy mr-1"></i> ${copies > 0 ? copies + ' copies left' : 'Out of stock'}
+                    <i class="fa-solid fa-copy mr-1"></i> ${copies > 0 ? copies + ' copies available' : 'Out of stock'}
                 </span>
                 <span class="text-church-600 font-semibold group-hover:translate-x-1 transition-transform">Details &rarr;</span>
             </div>
@@ -256,7 +274,6 @@ function handleSearchAndFilter() {
     initCatalog();
 }
 
-// User Auth Management
 function updateUserAuthUI() {
     const container = document.getElementById('user-auth-badge');
     if (!container) return;
@@ -329,7 +346,7 @@ function openMyRequestsModal() {
             let statusBadge = '';
             const st = (b.Status || '').trim();
             if (st === 'Pending') statusBadge = `<span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-bold">🟡 Pending Approval</span>`;
-            else if (st === 'Approved') statusBadge = `<span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold">🔵 Approved (Ready for Pickup at Church)</span>`;
+            else if (st === 'Approved') statusBadge = `<span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold">🔵 Approved (Ready for Pickup)</span>`;
             else if (st === 'Active') statusBadge = `<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold">🟢 Active Loan (Due: ${cleanDate(b.DueDate)})</span>`;
             else if (st === 'Cancelled') statusBadge = `<span class="bg-red-100 text-red-700 px-2 py-0.5 rounded font-bold">❌ Cancelled</span>`;
             else statusBadge = `<span class="bg-gray-100 text-gray-700 px-2 py-0.5 rounded">Returned</span>`;
@@ -357,11 +374,11 @@ function checkUserDueAlerts() {
     if (userLoans.length > 0 && banner && msg) {
         const loan = userLoans[0];
         msg.innerHTML = `<strong>Loan Notice:</strong> You have <em>"${loan.BookTitle}"</em> checked out. Return Due Date: <strong>${cleanDate(loan.DueDate)}</strong>.`;
-        banner.classList.remove('hidden');
+        banner.style.display = 'block';
     }
 }
 
-// Borrowing Form Workflow
+// Borrowing & Details Workflow
 function openBookModal(book) {
     activeBookForAction = book;
     document.getElementById('modal-title').textContent = book.title;
@@ -370,13 +387,15 @@ function openBookModal(book) {
     document.getElementById('modal-category').textContent = book.category;
     document.getElementById('modal-pubdate').textContent = book.publicationDate;
     document.getElementById('modal-pages').textContent = book.pages + " pages";
-    document.getElementById('modal-copies').textContent = book.copies;
+    
+    // Self-checked available copies
+    const copies = calculateAvailableCopies(book.id, book.copies);
+    document.getElementById('modal-copies').textContent = copies;
     document.getElementById('modal-description').textContent = book.description || 'No description available.';
 
     const classificationEl = document.getElementById('modal-classification');
     const isBorrowable = (book.classification || '').toLowerCase().includes('borrowable');
     const isPastor = currentUser && (currentUser.designation || '').toLowerCase() === 'pastor';
-    const copies = parseInt(book.copies) || 0;
 
     classificationEl.textContent = book.classification;
     classificationEl.className = isBorrowable ? "inline-block px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800" : "inline-block px-2 py-0.5 rounded text-xs font-semibold bg-amber-100 text-amber-800";
@@ -502,33 +521,34 @@ function submitBorrowRequest() {
         dueDate: dueDate
     };
 
-    const submitBtn = document.getElementById('btn-submit-borrow');
-    submitBtn.disabled = true;
-    submitBtn.textContent = "Submitting...";
+    // OPTIMISTIC UI: Instantly add to local borrows and update screen
+    const tempBorrowId = "BRW-" + new Date().getTime();
+    allBorrows.unshift({
+        BorrowID: tempBorrowId,
+        BookID: activeBookForAction.id,
+        BookTitle: activeBookForAction.title,
+        MemberID: currentUser.id,
+        MemberName: currentUser.name,
+        MemberPhone: currentUser.phone || '',
+        MemberEmail: currentUser.email || '',
+        Type: "Borrow",
+        PickupDate: pickupDate,
+        PickupTime: pickupTime,
+        DueDate: dueDate,
+        Status: "Pending"
+    });
 
+    closeModal('borrow-modal');
+    renderCirculationCounts();
+    if (isLibrarianActive) renderAdminTables();
+    initCatalog();
+    alert(`Request received! Status: PENDING APPROVAL.\nReturn Date: ${dueDate}`);
+
+    // Background sync to Google Sheets
     fetch(API_URL, {
         method: "POST",
         body: JSON.stringify(payload)
-    })
-    .then(r => r.json())
-    .then(res => {
-        submitBtn.disabled = false;
-        submitBtn.textContent = "Confirm Request";
-        if (res.status === "success") {
-            alert(`Request logged! It is now PENDING APPROVAL by the church librarian.\n\nReturn Date: ${dueDate}`);
-            closeModal('borrow-modal');
-            fetchLibraryData();
-        } else {
-            alert("Error: " + res.message);
-        }
-    })
-    .catch(() => {
-        submitBtn.disabled = false;
-        submitBtn.textContent = "Confirm Request";
-        alert("Request processed! Please confirm with the librarian.");
-        closeModal('borrow-modal');
-        fetchLibraryData();
-    });
+    }).catch(e => console.warn("Background sync warning:", e));
 }
 
 function openOnsiteScheduleForm() {
@@ -570,12 +590,11 @@ function submitOnsiteSchedule() {
         dueDate: date
     };
 
+    closeModal('onsite-modal');
+    alert(`Your reading desk slot at Crosspoint Church for ${date} at ${time} is recorded!`);
+
     fetch(API_URL, { method: "POST", body: JSON.stringify(payload) })
-        .then(() => {
-            alert(`Your reading desk reservation for ${date} at ${time} is recorded!`);
-            closeModal('onsite-modal');
-            fetchLibraryData();
-        });
+        .then(() => fetchLibraryData());
 }
 
 // Librarian Portal Management
@@ -680,7 +699,6 @@ function renderAdminTables() {
     applyAnalyticsTimelineFilter();
 }
 
-// Circulation Desk Renderer with Live Dynamic Phone Lookup
 function renderCirculationTable() {
     const tbody = document.getElementById('admin-borrows-tbody');
     if (!tbody) return;
@@ -704,10 +722,10 @@ function renderCirculationTable() {
         else if (st === 'Cancelled') statusBadge = `<span class="bg-red-100 text-red-700 px-2 py-0.5 rounded font-bold">❌ Cancelled</span>`;
         else statusBadge = `<span class="bg-gray-100 text-gray-700 px-2 py-0.5 rounded font-semibold">Returned</span>`;
 
-        // DYNAMIC PHONE LOOKUP (Checks member profile directly)
-        const currentPhone = getMemberCurrentPhone(b.MemberID, b.MemberPhone);
+        // Direct member phone check
+        const mem = allMembers.find(m => (m.MemberID || '').toString().toUpperCase() === (b.MemberID || '').toString().toUpperCase());
+        const currentPhone = (mem && mem.Phone) ? mem.Phone : b.MemberPhone;
 
-        // Contact info display
         let phoneDisplay = '';
         if (currentPhone) {
             phoneDisplay = `<span class="text-church-700 font-semibold">${currentPhone}</span>`;
@@ -765,7 +783,6 @@ function renderCirculationTable() {
     }).join('');
 }
 
-// Members Table
 function renderMembersTable() {
     const tbody = document.getElementById('admin-members-tbody');
     if (!tbody) return;
@@ -837,8 +854,21 @@ function applyAnalyticsTimelineFilter() {
     document.getElementById('stat-top-book').textContent = topBook;
 }
 
-// Circulation Actions
+// OPTIMISTIC ACTIONS (Instant 0ms UI Updates)
 function adminApproveRequest(borrowId, bookId, type, phone, email, name, title) {
+    const borrow = allBorrows.find(b => b.BorrowID === borrowId);
+    if (borrow) borrow.Status = 'Approved';
+
+    // Instantly update UI
+    renderCirculationCounts();
+    renderCirculationTable();
+    initCatalog();
+
+    if (phone && confirm("Request approved! Send WhatsApp pickup notification to member now?")) {
+        sendWhatsAppDirect(phone, 'approved', title, name);
+    }
+
+    // Save in background
     fetch(API_URL, {
         method: "POST",
         body: JSON.stringify({
@@ -850,20 +880,22 @@ function adminApproveRequest(borrowId, bookId, type, phone, email, name, title) 
             memberName: name,
             bookTitle: title
         })
-    })
-    .then(r => r.json())
-    .then(res => {
-        alert(res.message);
-        if (phone && confirm("Would you like to send a WhatsApp notification confirming their approval?")) {
-            sendWhatsAppDirect(phone, 'approved', title, name);
-        }
-        fetchLibraryData();
-    });
+    }).catch(e => console.warn(e));
 }
 
 function adminCancelRequest(borrowId, bookId, type, email, name, title) {
-    const reason = prompt("Reason for cancellation (e.g. Unclaimed after 3 days / Member cancelled):", "Unclaimed pickup");
+    const reason = prompt("Reason for cancellation:", "Unclaimed pickup");
     if (reason === null) return;
+
+    const borrow = allBorrows.find(b => b.BorrowID === borrowId);
+    if (borrow) {
+        borrow.Status = 'Cancelled';
+        borrow.Notes = reason;
+    }
+
+    renderCirculationCounts();
+    renderCirculationTable();
+    initCatalog();
 
     fetch(API_URL, {
         method: "POST",
@@ -877,12 +909,7 @@ function adminCancelRequest(borrowId, bookId, type, email, name, title) {
             memberName: name,
             bookTitle: title
         })
-    })
-    .then(r => r.json())
-    .then(res => {
-        alert(res.message);
-        fetchLibraryData();
-    });
+    }).catch(e => console.warn(e));
 }
 
 function openIssueModal(borrowId) {
@@ -901,6 +928,15 @@ function confirmAdminIssue() {
     const cond = document.getElementById('issue-condition-select').value;
     const issueDate = document.getElementById('issue-date-input').value;
 
+    targetIssueBorrow.Status = 'Active';
+    targetIssueBorrow.ConditionIssued = cond;
+    targetIssueBorrow.IssuedDate = issueDate;
+
+    closeModal('issue-modal');
+    renderCirculationCounts();
+    renderCirculationTable();
+    initCatalog();
+
     fetch(API_URL, {
         method: "POST",
         body: JSON.stringify({
@@ -911,13 +947,7 @@ function confirmAdminIssue() {
             condition: cond,
             issuedDate: issueDate
         })
-    })
-    .then(r => r.json())
-    .then(res => {
-        alert(res.message);
-        closeModal('issue-modal');
-        fetchLibraryData();
-    });
+    }).catch(e => console.warn(e));
 }
 
 function openReturnModal(borrowId) {
@@ -936,6 +966,16 @@ function confirmAdminReturn() {
     const penalty = document.getElementById('return-penalty-select').value;
     const returnDate = document.getElementById('return-date-input').value;
 
+    targetReturnBorrow.Status = 'Returned';
+    targetReturnBorrow.ConditionReturned = cond;
+    targetReturnBorrow.Penalty = penalty;
+    targetReturnBorrow.ReturnDate = returnDate;
+
+    closeModal('return-modal');
+    renderCirculationCounts();
+    renderCirculationTable();
+    initCatalog();
+
     fetch(API_URL, {
         method: "POST",
         body: JSON.stringify({
@@ -947,42 +987,63 @@ function confirmAdminReturn() {
             penalty: penalty,
             returnDate: returnDate
         })
-    })
-    .then(r => r.json())
-    .then(res => {
-        alert(res.message);
-        closeModal('return-modal');
-        fetchLibraryData();
-    });
+    }).catch(e => console.warn(e));
 }
 
 function adminExtendLoan(borrowId) {
+    const borrow = allBorrows.find(b => b.BorrowID === borrowId);
+    if (!borrow) return;
+
+    if (borrow.ExtensionUsed === true || borrow.ExtensionUsed === "TRUE") {
+        alert("A 2-week extension has already been granted for this loan.");
+        return;
+    }
+
+    const curDueDate = new Date(borrow.DueDate);
+    curDueDate.setDate(curDueDate.getDate() + 14);
+    borrow.DueDate = curDueDate.toISOString().split('T')[0];
+    borrow.ExtensionUsed = true;
+
+    renderCirculationTable();
+    alert(`2-Week Extension Granted! New Due Date: ${borrow.DueDate}`);
+
     fetch(API_URL, {
         method: "POST",
         body: JSON.stringify({ action: "extendLoan", borrowId: borrowId })
-    })
-    .then(r => r.json())
-    .then(res => {
-        if (res.status === "success") {
-            alert(`2-Week Extension Granted! New Due Date: ${res.newDueDate}`);
-        } else {
-            alert(res.message);
-        }
-        fetchLibraryData();
-    });
+    }).catch(e => console.warn(e));
 }
 
+// Register Member with Automatic Phone Sanitization
 function adminRegisterMember() {
     const id = document.getElementById('new-mem-id').value.trim().toUpperCase();
     const name = document.getElementById('new-mem-name').value.trim();
     const desig = document.getElementById('new-mem-desig').value;
-    const phone = document.getElementById('new-mem-phone').value.trim();
+    const rawPhone = document.getElementById('new-mem-phone').value.trim();
     const email = document.getElementById('new-mem-email').value.trim();
 
     if (!id || !name) {
         alert("Please provide both unique Member ID and Full Name.");
         return;
     }
+
+    const formattedPhone = formatPhoneForWhatsApp(rawPhone) || rawPhone;
+
+    // Optimistic member addition
+    const newMember = {
+        MemberID: id,
+        FullName: name,
+        Designation: desig,
+        Phone: formattedPhone,
+        Email: email
+    };
+    allMembers.push(newMember);
+    renderMembersTable();
+
+    document.getElementById('new-mem-id').value = '';
+    document.getElementById('new-mem-name').value = '';
+    document.getElementById('new-mem-phone').value = '';
+    document.getElementById('new-mem-email').value = '';
+    alert(`Member ${name} registered! WhatsApp messaging is enabled immediately.`);
 
     fetch(API_URL, {
         method: "POST",
@@ -991,21 +1052,10 @@ function adminRegisterMember() {
             memberId: id,
             fullName: name,
             designation: desig,
-            phone: phone,
+            phone: formattedPhone,
             email: email
         })
-    })
-    .then(r => r.json())
-    .then(res => {
-        alert(res.message);
-        if (res.status === "success") {
-            document.getElementById('new-mem-id').value = '';
-            document.getElementById('new-mem-name').value = '';
-            document.getElementById('new-mem-phone').value = '';
-            document.getElementById('new-mem-email').value = '';
-            fetchLibraryData();
-        }
-    });
+    }).catch(e => console.warn(e));
 }
 
 function openEditMemberModal(memberId) {
@@ -1023,58 +1073,66 @@ function openEditMemberModal(memberId) {
 
 function saveMemberContact() {
     if (!targetEditMember) return;
-    const phone = document.getElementById('edit-mem-phone').value.trim();
+    const rawPhone = document.getElementById('edit-mem-phone').value.trim();
     const email = document.getElementById('edit-mem-email').value.trim();
+    const formattedPhone = formatPhoneForWhatsApp(rawPhone) || rawPhone;
+
+    targetEditMember.Phone = formattedPhone;
+    targetEditMember.Email = email;
+
+    // Sync in all open loans
+    allBorrows.forEach(b => {
+        if ((b.MemberID || '').toString().toUpperCase() === targetEditMember.MemberID.toUpperCase()) {
+            b.MemberPhone = formattedPhone;
+            b.MemberEmail = email;
+        }
+    });
+
+    closeModal('edit-member-modal');
+    renderMembersTable();
+    renderCirculationTable();
+    alert("Contact updated and synced across all records!");
 
     fetch(API_URL, {
         method: "POST",
         body: JSON.stringify({
             action: "updateMemberContact",
             memberId: targetEditMember.MemberID,
-            phone: phone,
+            phone: formattedPhone,
             email: email
         })
-    })
-    .then(r => r.json())
-    .then(res => {
-        alert("Contact details saved and synced across all loan records!");
-        closeModal('edit-member-modal');
-        fetchLibraryData();
-    });
+    }).catch(e => console.warn(e));
 }
 
 function deleteMember(id) {
     if (!confirm(`Are you sure you want to delete member ${id}?`)) return;
+    allMembers = allMembers.filter(m => m.MemberID !== id);
+    renderMembersTable();
+
     fetch(API_URL, {
         method: "POST",
         body: JSON.stringify({ action: "deleteMember", memberId: id })
-    }).then(() => fetchLibraryData());
+    }).catch(e => console.warn(e));
 }
 
-// WhatsApp Engine with Auto-Prompt for Missing Phone
+// WhatsApp Engine
 function triggerBorrowerWhatsApp(memberId, memberName, bookTitle, stage, dueDate) {
-    const currentPhone = getMemberCurrentPhone(memberId, null);
-    if (!currentPhone) {
+    const mem = allMembers.find(m => (m.MemberID || '').toString().toUpperCase() === memberId.toString().toUpperCase());
+    const phone = mem && mem.Phone ? mem.Phone : null;
+
+    if (!phone) {
         alert(`No phone number on file for ${memberName} (${memberId}). Please add their number now.`);
         openEditMemberModal(memberId);
         return;
     }
 
-    if (stage === 'Pending') {
-        sendWhatsAppDirect(currentPhone, 'pending', bookTitle, memberName);
-    } else if (stage === 'Approved') {
-        sendWhatsAppDirect(currentPhone, 'approved', bookTitle, memberName);
+    if (stage === 'Approved') {
+        sendWhatsAppDirect(phone, 'approved', bookTitle, memberName);
+    } else if (stage === 'Active') {
+        sendWhatsAppDirect(phone, 'dueSoon', bookTitle, memberName, dueDate);
     } else {
-        sendWhatsAppDirect(currentPhone, 'dueSoon', bookTitle, memberName, dueDate);
+        sendWhatsAppDirect(phone, 'pending', bookTitle, memberName);
     }
-}
-
-function formatPhoneForWhatsApp(phone) {
-    if (!phone) return null;
-    let clean = phone.toString().replace(/[^0-9]/g, '');
-    if (clean.startsWith('0')) clean = '254' + clean.substring(1);
-    if (!clean.startsWith('254') && clean.length === 9) clean = '254' + clean;
-    return clean;
 }
 
 function sendWhatsAppDirect(phone, type, bookTitle, memberName, dueDate) {
@@ -1090,32 +1148,72 @@ function sendWhatsAppDirect(phone, type, bookTitle, memberName, dueDate) {
     } else if (type === 'dueSoon') {
         msg = `Reminder from Crosspoint Bible Church Library:\n\nHello ${memberName}, your borrowed book "${bookTitle}" is due on ${dueDate}. Please prepare to return it or request a 2-week extension.\n\nBlessings,\n${churchLibrarySettings.adminName}`;
     } else {
-        msg = `Hello ${memberName}, this is regarding your library loan for "${bookTitle}" at Crosspoint Bible Church.`;
+        msg = `Hello ${memberName}, this is regarding your library request for "${bookTitle}" at Crosspoint Bible Church.`;
     }
 
     window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
-// Admin / Library Settings
-function openAdminSettingsModal() {
-    document.getElementById('setting-admin-name').value = churchLibrarySettings.adminName || '';
-    document.getElementById('setting-admin-phone').value = churchLibrarySettings.adminPhone || '';
-    document.getElementById('setting-admin-email').value = churchLibrarySettings.adminEmail || '';
-    document.getElementById('admin-settings-modal').classList.remove('hidden');
+// Policy Modals (Terms & Privacy)
+function openPolicyModal(type) {
+    const modalTitle = document.getElementById('policy-modal-title');
+    const modalBody = document.getElementById('policy-modal-body');
+
+    if (type === 'terms') {
+        modalTitle.textContent = "Terms of Service & Library Guidelines";
+        modalBody.innerHTML = `
+            <p><strong>1. Standard Borrowing Duration:</strong> All borrowable books can be checked out for a maximum standard period of <strong>two (2) weeks (14 days)</strong>. A one-time extension of 14 extra days may be granted by the librarian.</p>
+            <p><strong>2. Book Safety & Care:</strong> Borrowers are entirely responsible for maintaining the physical safety and cleanliness of borrowed books. Please keep books away from liquids, extreme moisture, heat, and pets or young children who might tear pages.</p>
+            <p><strong>3. Onsite-Only Materials:</strong> Volumes marked as "Onsite Only" (such as Biblical Doctrine and Concordances) are reference items intended exclusively to be read within designated church study spaces at Kiamunyi, Nakuru (with pastoral exemption).</p>
+            <p><strong>4. Return Protocol:</strong> Books must be returned directly to the designated church library coordinator on or before the due date so others can benefit from reading them.</p>
+        `;
+    } else if (type === 'privacy') {
+        modalTitle.textContent = "Privacy Policy";
+        modalBody.innerHTML = `
+            <p><strong>1. Confidentiality:</strong> Crosspoint Bible Church collects member names, unique IDs, and phone numbers strictly for book circulation management and return notifications.</p>
+            <p><strong>2. Data Protection:</strong> Member contact records are private, restricted to library administration, and are never shared or sold to third parties.</p>
+        `;
+    }
+
+    document.getElementById('policy-modal').classList.remove('hidden');
 }
 
-function saveAdminSettings() {
-    churchLibrarySettings = {
-        adminName: document.getElementById('setting-admin-name').value.trim() || "Library Coordinator",
-        adminPhone: document.getElementById('setting-admin-phone').value.trim() || "+254 704 486 616",
-        adminEmail: document.getElementById('setting-admin-email').value.trim() || "cbcnakuru@gmail.com"
-    };
-    localStorage.setItem('cbc_admin_settings', JSON.stringify(churchLibrarySettings));
-    alert("Official church library settings saved!");
-    closeModal('admin-settings-modal');
+// Group Reading Directory & Badges
+function updateGroupBadges() {
+    const openGroups = allGroups.filter(g => g.Status === 'Open').length;
+    const navEl = document.getElementById('nav-group-count');
+    const mobEl = document.getElementById('mobile-nav-group-count');
+    if (navEl) navEl.textContent = openGroups;
+    if (mobEl) mobEl.textContent = openGroups;
 }
 
-// Group Reading
+function openAllGroupsModal() {
+    const list = document.getElementById('all-groups-list');
+    const openGroups = allGroups.filter(g => g.Status === 'Open');
+
+    if (openGroups.length === 0) {
+        list.innerHTML = `<p class="text-church-600 py-6 text-center italic">No reading circles are active right now. Click on any book in the catalog to start one!</p>`;
+    } else {
+        list.innerHTML = openGroups.map(g => {
+            const members = (g.JoinedMemberIDs || "").toString().split(',').filter(Boolean);
+            const remaining = Math.max(0, g.MaxLimit - members.length);
+            return `
+                <div class="p-3 bg-church-50 rounded-xl border border-church-200 flex justify-between items-center">
+                    <div>
+                        <p class="font-bold text-church-900">${g.BookTitle}</p>
+                        <p class="text-[11px] text-church-600">Leader: <strong>${g.LeaderName}</strong> • Plan: ${g.MeetingNotes || 'At Church'}</p>
+                        <p class="text-[10px] text-amber-800 font-semibold mt-1">${remaining} spots remaining out of ${g.MaxLimit}</p>
+                    </div>
+                    <button onclick="joinGroupReading('${g.GroupID}')" class="px-3 py-1.5 bg-church-800 hover:bg-church-900 text-white rounded-lg font-bold text-xs">
+                        Join Circle
+                    </button>
+                </div>`;
+        }).join('');
+    }
+
+    document.getElementById('all-groups-modal').classList.remove('hidden');
+}
+
 function openGroupModal(groupId) {
     const group = allGroups.find(g => g.GroupID == groupId);
     if (!group) return;
@@ -1140,18 +1238,29 @@ function joinGroupReading(groupId) {
         return;
     }
 
+    const group = allGroups.find(g => g.GroupID == groupId);
+    if (!group) return;
+
+    let members = (group.JoinedMemberIDs || "").toString().split(',').filter(Boolean);
+    if (members.includes(currentUser.id)) {
+        alert("You have already joined this group reading circle!");
+        return;
+    }
+
+    members.push(currentUser.id);
+    group.JoinedMemberIDs = members.join(',');
+    if (members.length >= group.MaxLimit) group.Status = 'Full';
+
+    closeModal('group-modal');
+    closeModal('all-groups-modal');
+    updateGroupBadges();
+    initCatalog();
+    alert("You have successfully joined the group reading circle!");
+
     fetch(API_URL, {
         method: "POST",
         body: JSON.stringify({ action: "joinGroup", groupId: groupId, memberId: currentUser.id })
-    })
-    .then(r => r.json())
-    .then(res => {
-        alert(res.message);
-        if (res.status === "success") {
-            closeModal('group-modal');
-            fetchLibraryData();
-        }
-    });
+    }).catch(e => console.warn(e));
 }
 
 function submitCreateGroup() {
@@ -1162,6 +1271,24 @@ function submitCreateGroup() {
     }
     const limit = document.getElementById('create-grp-limit').value;
     const notes = document.getElementById('create-grp-notes').value;
+
+    const tempGroupId = "GRP-" + new Date().getTime();
+    allGroups.push({
+        GroupID: tempGroupId,
+        BookID: activeBookForAction.id,
+        BookTitle: activeBookForAction.title,
+        LeaderID: currentUser.id,
+        LeaderName: currentUser.name,
+        MaxLimit: parseInt(limit),
+        JoinedMemberIDs: currentUser.id,
+        MeetingNotes: notes,
+        Status: "Open"
+    });
+
+    closeModal('create-group-modal');
+    updateGroupBadges();
+    initCatalog();
+    alert("Group reading circle published to the catalog!");
 
     fetch(API_URL, {
         method: "POST",
@@ -1174,25 +1301,41 @@ function submitCreateGroup() {
             maxLimit: limit,
             meetingNotes: notes
         })
-    })
-    .then(r => r.json())
-    .then(res => {
-        alert("Group invite published to catalog!");
-        closeModal('create-group-modal');
-        fetchLibraryData();
-    });
+    }).catch(e => console.warn(e));
 }
 
-// UI Modal Helpers
+// Admin Settings
+function openAdminSettingsModal() {
+    document.getElementById('setting-admin-name').value = churchLibrarySettings.adminName || '';
+    document.getElementById('setting-admin-phone').value = churchLibrarySettings.adminPhone || '';
+    document.getElementById('setting-admin-email').value = churchLibrarySettings.adminEmail || '';
+    document.getElementById('admin-settings-modal').classList.remove('hidden');
+}
+
+function saveAdminSettings() {
+    churchLibrarySettings = {
+        adminName: document.getElementById('setting-admin-name').value.trim() || "Library Coordinator",
+        adminPhone: document.getElementById('setting-admin-phone').value.trim() || "+254 704 486 616",
+        adminEmail: document.getElementById('setting-admin-email').value.trim() || "cbcnakuru@gmail.com"
+    };
+    localStorage.setItem('cbc_admin_settings', JSON.stringify(churchLibrarySettings));
+    alert("Church library official details saved!");
+    closeModal('admin-settings-modal');
+}
+
+// UI Modal Controls
 function openLoginModal() { document.getElementById('login-modal').classList.remove('hidden'); }
-function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+function closeModal(id) { 
+    const el = document.getElementById(id);
+    if (el) el.classList.add('hidden'); 
+}
 function openCreateGroupModal() {
     closeModal('book-modal');
     document.getElementById('create-group-modal').classList.remove('hidden');
 }
 
 window.addEventListener('click', (e) => {
-    const ids = ['login-modal', 'book-modal', 'borrow-modal', 'onsite-modal', 'issue-modal', 'return-modal', 'group-modal', 'create-group-modal', 'my-requests-modal', 'edit-member-modal', 'admin-settings-modal'];
+    const ids = ['login-modal', 'book-modal', 'borrow-modal', 'onsite-modal', 'issue-modal', 'return-modal', 'group-modal', 'create-group-modal', 'my-requests-modal', 'edit-member-modal', 'admin-settings-modal', 'policy-modal', 'all-groups-modal'];
     ids.forEach(id => {
         const el = document.getElementById(id);
         if (el && e.target === el) el.classList.add('hidden');
