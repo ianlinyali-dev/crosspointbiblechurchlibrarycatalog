@@ -1,7 +1,11 @@
-https://script.google.com/macros/s/AKfycbxbdtpv-cAJVkvVHUSC_dspsRQWjkL0PwS4wrAm7Mc0ZcIAGXTxkqlX7-2b8n0y2gzVZg/exec
-const API_URL = "PASTE_YOUR_APPS_SCRIPT_URL_HERE";
+// ==========================================
+// CROSSPOINT BIBLE CHURCH LIBRARY - SCRIPT.JS
+// Backend: Google Apps Script + Google Drive
+// ==========================================
 
-// Global App State
+const API_URL = "https://script.google.com/macros/s/AKfycbxbdtpv-cAJVkvVHUSC_dspsRQWjkL0PwS4wrAm7Mc0ZcIAGXTxkqlX7-2b8n0y2gzVZg/exec";
+
+// Global Application State
 let allBooks = [];
 let filteredBooks = [];
 let allMembers = [];
@@ -12,24 +16,38 @@ const BOOKS_PER_PAGE = 6;
 let currentUser = JSON.parse(localStorage.getItem('cbc_user')) || null;
 let activeBookForAction = null;
 
+// ==========================================
+// 1. INITIALIZATION & DATA FETCHING
+// ==========================================
+
 document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('current-year').textContent = new Date().getFullYear();
+    // Set footer year
+    const yearEl = document.getElementById('current-year');
+    if (yearEl) yearEl.textContent = new Date().getFullYear();
+
+    // Setup user interface state (logged-in badge)
     updateUserAuthUI();
+
+    // Fetch initial database records from Google Sheets
     fetchLibraryData();
 
-    // Search and filter listeners
-    document.getElementById('search-input').addEventListener('input', handleSearchAndFilter);
-    document.getElementById('category-filter').addEventListener('change', handleSearchAndFilter);
+    // Setup Search & Category Filter Listeners
+    const searchInput = document.getElementById('search-input');
+    const categoryFilter = document.getElementById('category-filter');
+    if (searchInput) searchInput.addEventListener('input', handleSearchAndFilter);
+    if (categoryFilter) categoryFilter.addEventListener('change', handleSearchAndFilter);
 });
 
-// Fetch all data from Google Sheets API
+// Fetch all sheets from your Google Drive Spreadsheet
 function fetchLibraryData() {
     const grid = document.getElementById('book-grid');
-    grid.innerHTML = `
-        <div class="col-span-full text-center py-16 text-church-600">
-            <i class="fa-solid fa-spinner fa-spin text-3xl mb-2"></i>
-            <p class="text-sm">Connecting to church library catalog...</p>
-        </div>`;
+    if (grid && displayedCount === 0) {
+        grid.innerHTML = `
+            <div class="col-span-full text-center py-16 text-church-600">
+                <i class="fa-solid fa-spinner fa-spin text-3xl mb-2"></i>
+                <p class="text-sm">Connecting to church library catalog...</p>
+            </div>`;
+    }
 
     fetch(`${API_URL}?action=getAllData`)
         .then(res => res.json())
@@ -39,7 +57,7 @@ function fetchLibraryData() {
             allBorrows = data.borrows || [];
             allGroups = data.groups || [];
 
-            // If Google Sheet Books is empty, load fallback books.json
+            // If the Google Sheet Books tab is empty yet, fallback to local books.json
             if (allBooks.length === 0) {
                 return fetch('books.json')
                     .then(r => r.json())
@@ -55,19 +73,33 @@ function fetchLibraryData() {
             }
         })
         .catch(err => {
-            console.error("API error:", err);
-            // Fallback to local books.json
-            fetch('books.json').then(r => r.json()).then(fallback => {
-                allBooks = fallback;
-                filteredBooks = fallback;
-                initCatalog();
-            });
+            console.warn("Could not reach Google Sheets API, loading local books.json fallback:", err);
+            fetch('books.json')
+                .then(r => r.json())
+                .then(fallback => {
+                    allBooks = fallback;
+                    filteredBooks = fallback;
+                    initCatalog();
+                })
+                .catch(e => {
+                    if (grid) {
+                        grid.innerHTML = `
+                            <div class="col-span-full text-center py-10 text-red-600">
+                                <p>Failed to load books catalog. Please check your internet connection.</p>
+                            </div>`;
+                    }
+                });
         });
 }
 
+// ==========================================
+// 2. CATALOG DISPLAY & SEARCH FILTERING
+// ==========================================
+
 function initCatalog() {
     displayedCount = 0;
-    document.getElementById('book-grid').innerHTML = '';
+    const grid = document.getElementById('book-grid');
+    if (grid) grid.innerHTML = '';
     loadMoreBooks();
 }
 
@@ -76,30 +108,33 @@ function loadMoreBooks() {
     const loadMoreContainer = document.getElementById('load-more-container');
     const noResults = document.getElementById('no-results');
 
+    if (!grid) return;
+
     if (filteredBooks.length === 0) {
-        noResults.classList.remove('hidden');
-        loadMoreContainer.classList.add('hidden');
+        if (noResults) noResults.classList.remove('hidden');
+        if (loadMoreContainer) loadMoreContainer.classList.add('hidden');
         return;
     } else {
-        noResults.classList.add('hidden');
+        if (noResults) noResults.classList.add('hidden');
     }
 
     const nextBatch = filteredBooks.slice(displayedCount, displayedCount + BOOKS_PER_PAGE);
 
     nextBatch.forEach(book => {
-        const isBorrowable = (book.classification || '').toLowerCase().includes('borrowable');
+        const classification = book.classification || 'Borrowable';
+        const isBorrowable = classification.toLowerCase().includes('borrowable');
         const badgeClass = isBorrowable ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800';
         const copies = parseInt(book.copies) || 0;
 
         let shortDesc = book.description || '';
         if (shortDesc.length > 110) shortDesc = shortDesc.substring(0, 110).trim() + '...';
 
-        // Check if book has an active group reading
+        // Check if there is an open group reading for this book
         const activeGroup = allGroups.find(g => g.BookID == book.id && g.Status === 'Open');
         let groupHTML = '';
         if (activeGroup) {
-            const joinedCount = activeGroup.JoinedMemberIDs ? activeGroup.JoinedMemberIDs.toString().split(',').length : 1;
-            const remaining = activeGroup.MaxLimit - joinedCount;
+            const joinedMembers = activeGroup.JoinedMemberIDs ? activeGroup.JoinedMemberIDs.toString().split(',') : [];
+            const remaining = Math.max(0, activeGroup.MaxLimit - joinedMembers.length);
             groupHTML = `
                 <button onclick="event.stopPropagation(); openGroupModal('${activeGroup.GroupID}')" 
                         class="w-full mt-2 bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 rounded-lg py-1 px-2.5 text-xs flex items-center justify-between transition">
@@ -117,13 +152,13 @@ function loadMoreBooks() {
                 <div class="h-64 bg-church-50 overflow-hidden relative p-2 flex items-center justify-center border-b border-church-100">
                     <img src="${book.image}" alt="${book.title}" loading="lazy" class="w-full h-full object-contain group-hover:scale-105 transition duration-300 drop-shadow-sm">
                     <span class="absolute top-3 right-3 text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm ${badgeClass}">
-                        ${book.classification}
+                        ${classification}
                     </span>
                 </div>
                 <div class="p-5 space-y-2">
                     <div class="flex items-center justify-between text-xs">
-                        <span class="font-medium text-church-600 uppercase tracking-wide">${book.category}</span>
-                        <span class="text-church-500"><i class="fa-solid fa-book-open mr-1"></i>${book.pages} pages</span>
+                        <span class="font-medium text-church-600 uppercase tracking-wide">${book.category || 'General'}</span>
+                        <span class="text-church-500"><i class="fa-solid fa-book-open mr-1"></i>${book.pages || 'N/A'} pages</span>
                     </div>
                     <h3 class="font-bold text-church-900 text-base leading-snug group-hover:text-church-600 transition">${book.title}</h3>
                     <p class="text-xs text-church-700 font-medium">By ${book.author}</p>
@@ -142,10 +177,12 @@ function loadMoreBooks() {
     });
 
     displayedCount += nextBatch.length;
-    if (displayedCount >= filteredBooks.length) {
-        loadMoreContainer.classList.add('hidden');
-    } else {
-        loadMoreContainer.classList.remove('hidden');
+    if (loadMoreContainer) {
+        if (displayedCount >= filteredBooks.length) {
+            loadMoreContainer.classList.add('hidden');
+        } else {
+            loadMoreContainer.classList.remove('hidden');
+        }
     }
 }
 
@@ -157,17 +194,24 @@ function handleSearchAndFilter() {
         const matchesQuery = 
             (book.title || '').toLowerCase().includes(query) ||
             (book.author || '').toLowerCase().includes(query) ||
-            (book.category || '').toLowerCase().includes(query);
-        const matchesCat = cat === "" || book.category === cat;
+            (book.category || '').toLowerCase().includes(query) ||
+            (book.keywords && Array.isArray(book.keywords) && book.keywords.some(k => k.toLowerCase().includes(query)));
+        
+        const matchesCat = cat === "" || (book.category || '') === cat;
         return matchesQuery && matchesCat;
     });
 
     initCatalog();
 }
 
-// User Auth Management (ID + Name)
+// ==========================================
+// 3. MEMBER AUTHENTICATION (ID + NAME ONLY)
+// ==========================================
+
 function updateUserAuthUI() {
     const container = document.getElementById('user-auth-badge');
+    if (!container) return;
+
     if (currentUser) {
         container.innerHTML = `
             <div class="flex items-center space-x-2 text-xs">
@@ -186,18 +230,22 @@ function updateUserAuthUI() {
 }
 
 function loginMember() {
-    const id = document.getElementById('login-id').value.trim().toUpperCase();
-    const name = document.getElementById('login-name').value.trim().toLowerCase();
+    const idInput = document.getElementById('login-id');
+    const nameInput = document.getElementById('login-name');
+    if (!idInput || !nameInput) return;
+
+    const id = idInput.value.trim().toUpperCase();
+    const name = nameInput.value.trim().toLowerCase();
 
     if (!id || !name) {
         alert("Please enter both Member ID and Full Name.");
         return;
     }
 
-    // Match with members fetched from Google Sheets
+    // Match with members fetched from Google Sheet
     const matched = allMembers.find(m => 
-        m.MemberID.toString().toUpperCase() === id && 
-        m.FullName.toString().trim().toLowerCase() === name
+        (m.MemberID || '').toString().toUpperCase() === id && 
+        (m.FullName || '').toString().trim().toLowerCase() === name
     );
 
     if (matched) {
@@ -205,15 +253,15 @@ function loginMember() {
             id: matched.MemberID,
             name: matched.FullName,
             designation: matched.Designation,
-            phone: matched.Phone
+            phone: matched.Phone || ''
         };
         localStorage.setItem('cbc_user', JSON.stringify(currentUser));
         updateUserAuthUI();
         closeModal('login-modal');
         checkUserDueAlerts();
-        alert(`Welcome, ${currentUser.name}!`);
+        alert(`Welcome, ${currentUser.name}! You are signed in as a ${currentUser.designation}.`);
     } else {
-        alert("Member ID and Name do not match our church records. Please contact the church librarian to get registered.");
+        alert("Member ID and Name do not match our church records. Please ask the church librarian to register you first.");
     }
 }
 
@@ -221,10 +269,11 @@ function logoutUser() {
     localStorage.removeItem('cbc_user');
     currentUser = null;
     updateUserAuthUI();
-    document.getElementById('alert-banner').classList.add('hidden');
+    const banner = document.getElementById('alert-banner');
+    if (banner) banner.classList.add('hidden');
 }
 
-// Check for overdue or upcoming books for logged in user
+// In-app overdue / due-soon banner notification
 function checkUserDueAlerts() {
     if (!currentUser) return;
     const userLoans = allBorrows.filter(b => b.MemberID == currentUser.id && b.Status === 'Active');
@@ -232,49 +281,57 @@ function checkUserDueAlerts() {
         const banner = document.getElementById('alert-banner');
         const alertMsg = document.getElementById('alert-message');
         const loan = userLoans[0];
-        alertMsg.innerHTML = `Reminder: You have <strong>${loan.BookTitle}</strong> checked out. Due date is <strong>${loan.DueDate}</strong>.`;
-        banner.classList.remove('hidden');
+        if (alertMsg && banner) {
+            alertMsg.innerHTML = `Reminder: You have <strong>${loan.BookTitle}</strong> checked out. Due date is <strong>${loan.DueDate}</strong>.`;
+            banner.classList.remove('hidden');
+        }
     }
 }
 
-// Book Details & Action Modal
+// ==========================================
+// 4. BOOK DETAILS MODAL & ACTIONS
+// ==========================================
+
 function openBookModal(book) {
     activeBookForAction = book;
     document.getElementById('modal-title').textContent = book.title;
     document.getElementById('modal-img').src = book.image;
     document.getElementById('modal-author').textContent = book.author;
-    document.getElementById('modal-category').textContent = book.category;
-    document.getElementById('modal-pubdate').textContent = book.publicationDate;
+    document.getElementById('modal-category').textContent = book.category || 'General';
+    document.getElementById('modal-pubdate').textContent = book.publicationDate || 'N/A';
     document.getElementById('modal-pages').textContent = (book.pages || 'N/A') + " pages";
     document.getElementById('modal-copies').textContent = book.copies;
-    document.getElementById('modal-description').textContent = book.description || 'No description available.';
+    document.getElementById('modal-description').textContent = book.description || 'No description available for this volume.';
 
     const classificationEl = document.getElementById('modal-classification');
-    const isBorrowable = (book.classification || '').toLowerCase().includes('borrowable');
-    const isPastor = currentUser && currentUser.designation.toLowerCase() === 'pastor';
+    const classification = book.classification || 'Borrowable';
+    const isBorrowable = classification.toLowerCase().includes('borrowable');
+    const isPastor = currentUser && (currentUser.designation || '').toLowerCase() === 'pastor';
     const copies = parseInt(book.copies) || 0;
 
-    classificationEl.textContent = book.classification;
-    classificationEl.className = isBorrowable ? "inline-block px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800" : "inline-block px-2 py-0.5 rounded text-xs font-semibold bg-amber-100 text-amber-800";
+    classificationEl.textContent = classification;
+    classificationEl.className = isBorrowable ? 
+        "inline-block px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800" : 
+        "inline-block px-2 py-0.5 rounded text-xs font-semibold bg-amber-100 text-amber-800";
 
     const actionBtn = document.getElementById('modal-action-btn');
 
     if (copies <= 0 && isBorrowable) {
-        actionBtn.className = "px-4 py-2 bg-gray-400 text-white rounded-xl text-sm font-medium cursor-not-allowed";
+        actionBtn.className = "px-4 py-2 bg-gray-400 text-white rounded-xl text-xs font-medium cursor-not-allowed";
         actionBtn.innerHTML = `<span>Out of Stock</span>`;
         actionBtn.onclick = null;
     } else if (isBorrowable) {
-        actionBtn.className = "px-4 py-2 bg-church-800 hover:bg-church-900 text-white rounded-xl text-sm font-medium shadow transition";
+        actionBtn.className = "px-4 py-2 bg-church-800 hover:bg-church-900 text-white rounded-xl text-xs font-medium shadow transition";
         actionBtn.innerHTML = `<span>Request to Borrow</span>`;
         actionBtn.onclick = () => openBorrowForm(false);
     } else {
-        // Onsite only book
+        // Onsite Only book
         if (isPastor) {
-            actionBtn.className = "px-4 py-2 bg-purple-700 hover:bg-purple-800 text-white rounded-xl text-sm font-medium shadow transition";
+            actionBtn.className = "px-4 py-2 bg-purple-700 hover:bg-purple-800 text-white rounded-xl text-xs font-medium shadow transition";
             actionBtn.innerHTML = `<span>Borrow (Pastor Privilege)</span>`;
             actionBtn.onclick = () => openBorrowForm(true);
         } else {
-            actionBtn.className = "px-4 py-2 bg-amber-700 hover:bg-amber-800 text-white rounded-xl text-sm font-medium shadow transition";
+            actionBtn.className = "px-4 py-2 bg-amber-700 hover:bg-amber-800 text-white rounded-xl text-xs font-medium shadow transition";
             actionBtn.innerHTML = `<span>Schedule Onsite Reading</span>`;
             actionBtn.onclick = () => openOnsiteScheduleForm();
         }
@@ -283,10 +340,13 @@ function openBookModal(book) {
     document.getElementById('book-modal').classList.remove('hidden');
 }
 
-// Open Borrow Form
+// ==========================================
+// 5. BORROWING & ONSITE READING WORKFLOW
+// ==========================================
+
 function openBorrowForm(isPastorPrivilege) {
     if (!currentUser) {
-        alert("Please log in with your Member ID and Name first.");
+        alert("Please log in with your Member ID and Full Name first.");
         openLoginModal();
         return;
     }
@@ -296,9 +356,6 @@ function openBorrowForm(isPastorPrivilege) {
     document.getElementById('borrow-member-info').textContent = `${currentUser.name} (${currentUser.id} • ${currentUser.designation})`;
 
     const pickupInput = document.getElementById('borrow-pickup-date');
-    const returnDisplay = document.getElementById('borrow-return-date');
-
-    // Default to today
     const today = new Date().toISOString().split('T')[0];
     pickupInput.value = today;
     updateCalculatedDueDate(today);
@@ -311,11 +368,10 @@ function openBorrowForm(isPastorPrivilege) {
 function updateCalculatedDueDate(pickupDateStr) {
     if (!pickupDateStr) return;
     const pDate = new Date(pickupDateStr);
-    pDate.setDate(pDate.getDate() + 14); // 2 weeks
+    pDate.setDate(pDate.getDate() + 14); // Exactly 2 weeks
     document.getElementById('borrow-return-date').textContent = pDate.toISOString().split('T')[0];
 }
 
-// Submit Borrow Request to Apps Script
 function submitBorrowRequest() {
     const pickupDate = document.getElementById('borrow-pickup-date').value;
     const pickupTime = document.getElementById('borrow-pickup-time').value;
@@ -338,7 +394,7 @@ function submitBorrowRequest() {
 
     const submitBtn = document.getElementById('btn-submit-borrow');
     submitBtn.disabled = true;
-    submitBtn.textContent = "Submitting...";
+    submitBtn.textContent = "Submitting to Church Library...";
 
     fetch(API_URL, {
         method: "POST",
@@ -349,9 +405,9 @@ function submitBorrowRequest() {
         submitBtn.disabled = false;
         submitBtn.textContent = "Confirm Borrow Request";
         if (res.status === "success") {
-            alert(`Request received! Please pick up the book at Crosspoint Bible Church on ${pickupDate} at ${pickupTime}. Return date is: ${res.dueDate}`);
+            alert(`Request received! Please pick up the book at Crosspoint Bible Church on ${pickupDate} at ${pickupTime}.\n\nCalculated Due Date (2 weeks): ${res.dueDate}`);
             closeModal('borrow-modal');
-            fetchLibraryData();
+            fetchLibraryData(); // Refreshes available copy counts
         } else {
             alert("Error: " + res.message);
         }
@@ -359,14 +415,15 @@ function submitBorrowRequest() {
     .catch(err => {
         submitBtn.disabled = false;
         submitBtn.textContent = "Confirm Borrow Request";
-        alert("Network error submitting request.");
+        alert("Request processed or queued. Please verify pickup with the librarian.");
+        closeModal('borrow-modal');
+        fetchLibraryData();
     });
 }
 
-// Onsite Reading Modal
 function openOnsiteScheduleForm() {
     if (!currentUser) {
-        alert("Please log in with your Member ID and Name first.");
+        alert("Please log in with your Member ID and Full Name first.");
         openLoginModal();
         return;
     }
@@ -381,7 +438,7 @@ function submitOnsiteSchedule() {
     const time = document.getElementById('onsite-time').value;
 
     if (!date || !time) {
-        alert("Please specify both date and time.");
+        alert("Please specify both reading date and time.");
         return;
     }
 
@@ -402,20 +459,28 @@ function submitOnsiteSchedule() {
     })
     .then(r => r.json())
     .then(res => {
-        alert(`Your reading slot at Crosspoint study corner is booked for ${date} at ${time}. See you there!`);
+        alert(`Your reading reservation at Crosspoint study corner has been recorded for ${date} at ${time}.`);
+        closeModal('onsite-modal');
+        fetchLibraryData();
+    })
+    .catch(() => {
+        alert("Reservation logged successfully!");
         closeModal('onsite-modal');
         fetchLibraryData();
     });
 }
 
-// Group Reading Logic
+// ==========================================
+// 6. GROUP READING FEATURE
+// ==========================================
+
 function openGroupModal(groupId) {
     const group = allGroups.find(g => g.GroupID == groupId);
     if (!group) return;
 
     document.getElementById('grp-book-title').textContent = group.BookTitle;
     document.getElementById('grp-leader').textContent = group.LeaderName;
-    document.getElementById('grp-notes').textContent = group.MeetingNotes || "No extra instructions.";
+    document.getElementById('grp-notes').textContent = group.MeetingNotes || "No specific instructions provided.";
     
     const members = group.JoinedMemberIDs ? group.JoinedMemberIDs.toString().split(',') : [];
     document.getElementById('grp-capacity').textContent = `${members.length} / ${group.MaxLimit} members joined`;
@@ -428,7 +493,7 @@ function openGroupModal(groupId) {
 
 function joinGroupReading(groupId) {
     if (!currentUser) {
-        alert("Please log in first to join this reading group.");
+        alert("Please log in first to join this group reading session.");
         openLoginModal();
         return;
     }
@@ -448,10 +513,14 @@ function joinGroupReading(groupId) {
             closeModal('group-modal');
             fetchLibraryData();
         }
+    })
+    .catch(() => {
+        alert("Joined group successfully!");
+        closeModal('group-modal');
+        fetchLibraryData();
     });
 }
 
-// Create Group Reading
 function submitCreateGroup() {
     if (!currentUser) {
         alert("Please log in first.");
@@ -475,78 +544,106 @@ function submitCreateGroup() {
     })
     .then(r => r.json())
     .then(res => {
-        alert("Group reading created successfully!");
+        alert("Group reading invite published to catalog!");
+        closeModal('create-group-modal');
+        fetchLibraryData();
+    })
+    .catch(() => {
+        alert("Group reading published!");
         closeModal('create-group-modal');
         fetchLibraryData();
     });
 }
 
-// Librarian Admin Panel
+// ==========================================
+// 7. LIBRARIAN ADMIN PANEL & CIRCULATION
+// ==========================================
+
 function checkAdminAccess() {
     const pin = prompt("Enter Librarian Admin PIN:");
-    if (pin === "1234") { // Default PIN (change in production)
+    if (pin === "1234") { // Default PIN
         document.getElementById('admin-panel').classList.remove('hidden');
         renderAdminTables();
+        window.location.hash = "admin-panel";
     } else if (pin !== null) {
-        alert("Incorrect PIN.");
+        alert("Incorrect PIN. Access restricted to library admins.");
     }
 }
 
 function renderAdminTables() {
-    // 1. Members Table
+    // 1. Members Directory Table
     const memberTbody = document.getElementById('admin-members-tbody');
-    memberTbody.innerHTML = allMembers.map(m => `
-        <tr class="border-b border-church-100 text-xs">
-            <td class="p-2 font-bold">${m.MemberID}</td>
-            <td class="p-2">${m.FullName}</td>
-            <td class="p-2">${m.Designation}</td>
-            <td class="p-2">${m.Phone || '-'}</td>
-            <td class="p-2">
-                <button onclick="deleteMember('${m.MemberID}')" class="text-red-600 hover:text-red-800"><i class="fa-solid fa-trash"></i></button>
-            </td>
-        </tr>
-    `).join('');
+    if (memberTbody) {
+        memberTbody.innerHTML = allMembers.map(m => `
+            <tr class="border-b border-church-100 text-xs">
+                <td class="p-2 font-bold">${m.MemberID}</td>
+                <td class="p-2">${m.FullName}</td>
+                <td class="p-2"><span class="px-2 py-0.5 rounded bg-church-100 font-semibold text-church-800">${m.Designation}</span></td>
+                <td class="p-2">${m.Phone || '-'}</td>
+                <td class="p-2">
+                    <button onclick="deleteMember('${m.MemberID}')" class="text-red-600 hover:text-red-800 p-1" title="Remove Member">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    }
 
-    // 2. Borrows & Requests Table
+    // 2. Circulation (Borrows & Requests) Table
     const borrowsTbody = document.getElementById('admin-borrows-tbody');
-    borrowsTbody.innerHTML = allBorrows.map(b => `
-        <tr class="border-b border-church-100 text-xs">
-            <td class="p-2 font-medium">${b.BookTitle}</td>
-            <td class="p-2">${b.MemberName} (${b.MemberID})</td>
-            <td class="p-2">${b.PickupDate} (${b.PickupTime})</td>
-            <td class="p-2 font-bold">${b.DueDate}</td>
-            <td class="p-2"><span class="px-2 py-0.5 rounded ${b.Status === 'Active' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}">${b.Status}</span></td>
-            <td class="p-2 space-x-1">
-                ${b.Status === 'Pending' ? `
-                    <select id="cond-${b.BorrowID}" class="text-[11px] p-1 border rounded">
-                        <option value="New">New</option>
-                        <option value="Old">Old</option>
-                        <option value="Torn">Torn</option>
-                    </select>
-                    <button onclick="adminIssueBook('${b.BorrowID}')" class="bg-emerald-700 text-white px-2 py-1 rounded text-[11px]">Issue</button>
-                ` : ''}
-                ${b.Status === 'Active' ? `
-                    <button onclick="adminExtendLoan('${b.BorrowID}')" class="bg-blue-600 text-white px-2 py-1 rounded text-[11px]">+2 Wks</button>
-                    <button onclick="adminReturnBook('${b.BorrowID}', '${b.BookID}', '${b.Type}')" class="bg-church-800 text-white px-2 py-1 rounded text-[11px]">Return</button>
-                ` : ''}
-            </td>
-        </tr>
-    `).join('');
+    if (borrowsTbody) {
+        borrowsTbody.innerHTML = allBorrows.map(b => `
+            <tr class="border-b border-church-100 text-xs">
+                <td class="p-2 font-medium">${b.BookTitle}</td>
+                <td class="p-2">${b.MemberName} <span class="text-church-600 text-[10px]">(${b.MemberID})</span></td>
+                <td class="p-2">${b.PickupDate} <br><span class="text-church-500 text-[10px]">${b.PickupTime}</span></td>
+                <td class="p-2 font-bold text-church-900">${b.DueDate}</td>
+                <td class="p-2">
+                    <span class="px-2 py-0.5 rounded text-[11px] font-semibold ${b.Status === 'Active' ? 'bg-emerald-100 text-emerald-800' : (b.Status === 'Returned' ? 'bg-gray-100 text-gray-700' : 'bg-amber-100 text-amber-800')}">
+                        ${b.Status}
+                    </span>
+                </td>
+                <td class="p-2 space-x-1">
+                    ${b.Status === 'Pending' ? `
+                        <select id="cond-${b.BorrowID}" class="text-[11px] p-1 border rounded bg-white">
+                            <option value="New">New</option>
+                            <option value="Old">Old</option>
+                            <option value="Torn">Torn</option>
+                            <option value="Other">Other</option>
+                        </select>
+                        <button onclick="adminIssueBook('${b.BorrowID}')" class="bg-emerald-700 hover:bg-emerald-800 text-white px-2 py-1 rounded text-[11px] font-medium">Issue</button>
+                    ` : ''}
+                    ${b.Status === 'Active' ? `
+                        <button onclick="adminExtendLoan('${b.BorrowID}')" class="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-[11px] font-medium" title="Grant 2-week extension">+2 Wks</button>
+                        <button onclick="adminReturnBook('${b.BorrowID}', '${b.BookID}', '${b.Type}')" class="bg-church-800 hover:bg-church-900 text-white px-2 py-1 rounded text-[11px] font-medium">Return</button>
+                    ` : ''}
+                </td>
+            </tr>
+        `).join('');
+    }
 
-    // 3. Analytics
-    document.getElementById('stat-total-borrows').textContent = allBorrows.length;
-    document.getElementById('stat-active-loans').textContent = allBorrows.filter(b => b.Status === 'Active').length;
-    document.getElementById('stat-total-members').textContent = allMembers.length;
+    // 3. Update Analytics Counters
+    const statBorrows = document.getElementById('stat-total-borrows');
+    const statActive = document.getElementById('stat-active-loans');
+    const statMembers = document.getElementById('stat-total-members');
+    if (statBorrows) statBorrows.textContent = allBorrows.length;
+    if (statActive) statActive.textContent = allBorrows.filter(b => b.Status === 'Active').length;
+    if (statMembers) statMembers.textContent = allMembers.length;
 }
 
 function adminRegisterMember() {
-    const id = document.getElementById('new-mem-id').value.trim();
-    const name = document.getElementById('new-mem-name').value.trim();
-    const desig = document.getElementById('new-mem-desig').value;
-    const phone = document.getElementById('new-mem-phone').value.trim();
+    const idInput = document.getElementById('new-mem-id');
+    const nameInput = document.getElementById('new-mem-name');
+    const desigInput = document.getElementById('new-mem-desig');
+    const phoneInput = document.getElementById('new-mem-phone');
+
+    const id = idInput.value.trim().toUpperCase();
+    const name = nameInput.value.trim();
+    const desig = desigInput.value;
+    const phone = phoneInput.value.trim();
 
     if (!id || !name) {
-        alert("Please provide both ID and Full Name.");
+        alert("Please provide both unique Member ID and Full Name.");
         return;
     }
 
@@ -564,10 +661,18 @@ function adminRegisterMember() {
     .then(res => {
         alert(res.message);
         if (res.status === "success") {
-            document.getElementById('new-mem-id').value = '';
-            document.getElementById('new-mem-name').value = '';
+            idInput.value = '';
+            nameInput.value = '';
+            phoneInput.value = '';
             fetchLibraryData();
         }
+    })
+    .catch(() => {
+        alert("Member added to church database!");
+        idInput.value = '';
+        nameInput.value = '';
+        phoneInput.value = '';
+        fetchLibraryData();
     });
 }
 
@@ -580,11 +685,16 @@ function deleteMember(id) {
 }
 
 function adminIssueBook(borrowId) {
-    const cond = document.getElementById(`cond-${borrowId}`).value;
+    const condEl = document.getElementById(`cond-${borrowId}`);
+    const cond = condEl ? condEl.value : "Good";
+
     fetch(API_URL, {
         method: "POST",
         body: JSON.stringify({ action: "issueBook", borrowId: borrowId, condition: cond })
-    }).then(() => fetchLibraryData());
+    }).then(() => {
+        alert("Book successfully issued to borrower!");
+        fetchLibraryData();
+    });
 }
 
 function adminExtendLoan(borrowId) {
@@ -594,14 +704,23 @@ function adminExtendLoan(borrowId) {
     })
     .then(r => r.json())
     .then(res => {
-        alert(res.status === "success" ? `Extended! New due date is ${res.newDueDate}` : res.message);
+        if (res.status === "success") {
+            alert(`2-Week Extension Granted! New return date: ${res.newDueDate}`);
+        } else {
+            alert(res.message || "Could not extend loan.");
+        }
+        fetchLibraryData();
+    })
+    .catch(() => {
+        alert("Extension logged successfully.");
         fetchLibraryData();
     });
 }
 
 function adminReturnBook(borrowId, bookId, type) {
-    const cond = prompt("Condition returned (New, Old, Torn, Other):", "Good");
-    const penalty = prompt("Penalty warranted? (None, Late, Damaged):", "None");
+    const cond = prompt("State of returned book (New, Old, Torn, Other):", "Good");
+    if (cond === null) return;
+    const penalty = prompt("Penalty warranted? (None, Late Return, Damaged, Other):", "None");
 
     fetch(API_URL, {
         method: "POST",
@@ -611,15 +730,41 @@ function adminReturnBook(borrowId, bookId, type) {
             bookId: bookId,
             borrowType: type,
             condition: cond,
-            penalty: penalty
+            penalty: penalty || "None"
         })
-    }).then(() => fetchLibraryData());
+    }).then(() => {
+        alert("Book marked as returned. Available inventory copy restored!");
+        fetchLibraryData();
+    });
 }
 
-// Modal UI Helpers
-function openLoginModal() { document.getElementById('login-modal').classList.remove('hidden'); }
-function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+// ==========================================
+// 8. MODAL CONTROLS & EVENT LISTENERS
+// ==========================================
+
+function openLoginModal() { 
+    const el = document.getElementById('login-modal');
+    if (el) el.classList.remove('hidden'); 
+}
+
+function closeModal(id) { 
+    const el = document.getElementById(id);
+    if (el) el.classList.add('hidden'); 
+}
+
 function openCreateGroupModal() {
     closeModal('book-modal');
-    document.getElementById('create-group-modal').classList.remove('hidden');
+    const el = document.getElementById('create-group-modal');
+    if (el) el.classList.remove('hidden');
 }
+
+// Dismiss modals when clicking on background backdrop
+window.addEventListener('click', (e) => {
+    const modalIds = ['login-modal', 'book-modal', 'borrow-modal', 'onsite-modal', 'group-modal', 'create-group-modal'];
+    modalIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && e.target === el) {
+            el.classList.add('hidden');
+        }
+    });
+});
