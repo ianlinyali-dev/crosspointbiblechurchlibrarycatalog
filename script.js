@@ -22,6 +22,13 @@ let targetReturnBorrow = null;
 let targetEditMember = null;
 let currentCirculationFilter = 'All';
 
+// Admin / Church Library Settings
+let churchLibrarySettings = JSON.parse(localStorage.getItem('cbc_admin_settings')) || {
+    adminName: "Library Coordinator",
+    adminPhone: "+254 704 486 616",
+    adminEmail: "cbcnakuru@gmail.com"
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     const yearEl = document.getElementById('current-year');
     if (yearEl) yearEl.textContent = new Date().getFullYear();
@@ -35,22 +42,37 @@ document.addEventListener('DOMContentLoaded', () => {
     const categoryFilter = document.getElementById('category-filter');
     if (searchInput) searchInput.addEventListener('input', handleSearchAndFilter);
     if (categoryFilter) categoryFilter.addEventListener('change', handleSearchAndFilter);
-
-    // Issue condition 'Other' toggle
-    const issueSelect = document.getElementById('issue-condition-select');
-    if (issueSelect) {
-        issueSelect.addEventListener('change', (e) => {
-            const box = document.getElementById('issue-condition-other-box');
-            if (box) box.classList.toggle('hidden', e.target.value !== 'Other');
-        });
-    }
 });
 
+// Helper: Formats dates cleanly
 function cleanDate(val) {
     if (!val) return '—';
     const str = String(val).trim();
     if (str.includes('T')) return str.split('T')[0];
     return str;
+}
+
+// Helper: Formats time cleanly without 1899-12-30 bug
+function cleanTime(val) {
+    if (!val) return '10:00';
+    let str = String(val).trim();
+    // If Google Sheets passed it as 1899-12-30T10:00:00.000Z
+    if (str.includes('T')) {
+        const timePart = str.split('T')[1];
+        if (timePart) return timePart.substring(0, 5);
+    }
+    if (str.includes('1899-12-30')) {
+        return '10:00';
+    }
+    return str.substring(0, 5);
+}
+
+// Helper: Retrieves member's current phone dynamically
+function getMemberCurrentPhone(memberId, fallbackPhone) {
+    const m = allMembers.find(mem => (mem.MemberID || '').toString().toUpperCase() === (memberId || '').toString().toUpperCase());
+    if (m && m.Phone && m.Phone.trim() !== '') return m.Phone.trim();
+    if (fallbackPhone && fallbackPhone.trim() !== '') return fallbackPhone.trim();
+    return null;
 }
 
 function fetchLibraryData() {
@@ -70,6 +92,17 @@ function fetchLibraryData() {
             allMembers = data.members || [];
             allBorrows = data.borrows || [];
             allGroups = data.groups || [];
+
+            // Re-sync current logged in user with fresh sheet data
+            if (currentUser) {
+                const refreshed = allMembers.find(m => (m.MemberID || '').toString().toUpperCase() === currentUser.id.toUpperCase());
+                if (refreshed) {
+                    currentUser.phone = refreshed.Phone || '';
+                    currentUser.email = refreshed.Email || '';
+                    localStorage.setItem('cbc_user', JSON.stringify(currentUser));
+                    updateUserAuthUI();
+                }
+            }
 
             if (rawBooks.length === 0) {
                 fetch('books.json')
@@ -120,7 +153,6 @@ function normalizeBook(raw) {
     };
 }
 
-// Catalog Card Renderer
 function initCatalog() {
     displayedCount = 0;
     const grid = document.getElementById('book-grid');
@@ -224,10 +256,7 @@ function handleSearchAndFilter() {
     initCatalog();
 }
 
-// ==========================================
-// USER AUTH & "MY REQUESTS" DASHBOARD
-// ==========================================
-
+// User Auth Management
 function updateUserAuthUI() {
     const container = document.getElementById('user-auth-badge');
     if (!container) return;
@@ -309,7 +338,7 @@ function openMyRequestsModal() {
                 <div class="p-3 bg-church-50 rounded-xl border border-church-200 flex justify-between items-center">
                     <div>
                         <p class="font-bold text-church-900">${b.BookTitle}</p>
-                        <p class="text-[11px] text-church-600">Pickup Date: ${cleanDate(b.PickupDate)} (${b.PickupTime || '10:00'})</p>
+                        <p class="text-[11px] text-church-600">Pickup Date: ${cleanDate(b.PickupDate)} (${cleanTime(b.PickupTime)})</p>
                     </div>
                     <div>${statusBadge}</div>
                 </div>`;
@@ -327,15 +356,12 @@ function checkUserDueAlerts() {
 
     if (userLoans.length > 0 && banner && msg) {
         const loan = userLoans[0];
-        msg.innerHTML = `<strong>Loan Notice:</strong> You currently have <em>"${loan.BookTitle}"</em> checked out. Return Due Date: <strong>${cleanDate(loan.DueDate)}</strong>.`;
+        msg.innerHTML = `<strong>Loan Notice:</strong> You have <em>"${loan.BookTitle}"</em> checked out. Return Due Date: <strong>${cleanDate(loan.DueDate)}</strong>.`;
         banner.classList.remove('hidden');
     }
 }
 
-// ==========================================
-// BORROWING & DETAILS WORKFLOW WITH STRICT RULES
-// ==========================================
-
+// Borrowing Form Workflow
 function openBookModal(book) {
     activeBookForAction = book;
     document.getElementById('modal-title').textContent = book.title;
@@ -387,8 +413,6 @@ function openBorrowForm(isPastorPrivilege) {
         return;
     }
 
-    // STRICT BORROWING LIMIT CHECK
-    // Pastors max 4 books; Regular members max 2 books
     const activeUserLoans = allBorrows.filter(b => 
         b.MemberID == currentUser.id && 
         ['Pending', 'Approved', 'Active'].includes((b.Status || '').trim())
@@ -410,11 +434,9 @@ function openBorrowForm(isPastorPrivilege) {
     const dueInput = document.getElementById('borrow-due-date');
     const todayStr = new Date().toISOString().split('T')[0];
 
-    // STRICT DATE RULE 1: Cannot select a date in the past
     pickupInput.min = todayStr;
     pickupInput.value = todayStr;
 
-    // Calculate default return date: 14 days ahead
     updateStrictDateBoundaries(todayStr);
 
     pickupInput.onchange = (e) => {
@@ -432,7 +454,7 @@ function openBorrowForm(isPastorPrivilege) {
         maxDue.setDate(pDate.getDate() + 14);
 
         if (selDueDate < pDate) {
-            alert("Return date cannot be earlier than the pick-up date!");
+            alert("Return date cannot be earlier than pick-up date!");
             e.target.value = pickupInput.value;
         } else if (selDueDate > maxDue) {
             alert("Return date cannot exceed the standard 14-day limit!");
@@ -446,17 +468,14 @@ function openBorrowForm(isPastorPrivilege) {
 function updateStrictDateBoundaries(pickupDateStr) {
     const pickup = new Date(pickupDateStr);
     const dueInput = document.getElementById('borrow-due-date');
-
-    // STRICT DATE RULE 2: Minimum return date is the pickup date (same day)
     dueInput.min = pickupDateStr;
 
-    // STRICT DATE RULE 3: Maximum return date is 14 days after pickup
     const maxDate = new Date(pickup);
     maxDate.setDate(pickup.getDate() + 14);
     const maxDateStr = maxDate.toISOString().split('T')[0];
 
     dueInput.max = maxDateStr;
-    dueInput.value = maxDateStr; // Default to full 14 days
+    dueInput.value = maxDateStr;
 }
 
 function submitBorrowRequest() {
@@ -466,11 +485,6 @@ function submitBorrowRequest() {
 
     if (!pickupDate || !pickupTime || !dueDate) {
         alert("Please ensure pick-up date, time, and return date are all filled.");
-        return;
-    }
-
-    if (dueDate < pickupDate) {
-        alert("Return date cannot be before pick-up date.");
         return;
     }
 
@@ -564,10 +578,7 @@ function submitOnsiteSchedule() {
         });
 }
 
-// ==========================================
-// LIBRARIAN PORTAL MANAGEMENT & TABS
-// ==========================================
-
+// Librarian Portal Management
 function toggleLibrarianAccess() {
     if (isLibrarianActive) {
         exitLibrarianConsole();
@@ -669,7 +680,7 @@ function renderAdminTables() {
     applyAnalyticsTimelineFilter();
 }
 
-// 1. Circulation Table Renderer (STRICT STAGES)
+// Circulation Desk Renderer with Live Dynamic Phone Lookup
 function renderCirculationTable() {
     const tbody = document.getElementById('admin-borrows-tbody');
     if (!tbody) return;
@@ -689,34 +700,29 @@ function renderCirculationTable() {
         let statusBadge = '';
         if (st === 'Pending') statusBadge = `<span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-bold">🟡 Pending Approval</span>`;
         else if (st === 'Approved') statusBadge = `<span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold">🔵 Approved / Ready</span>`;
-        else if (st === 'Active') statusBadge = `<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold">🟢 Active (Checked Out)</span>`;
+        else if (st === 'Active') statusBadge = `<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold">🟢 Active</span>`;
         else if (st === 'Cancelled') statusBadge = `<span class="bg-red-100 text-red-700 px-2 py-0.5 rounded font-bold">❌ Cancelled</span>`;
         else statusBadge = `<span class="bg-gray-100 text-gray-700 px-2 py-0.5 rounded font-semibold">Returned</span>`;
 
-        // Direct Contact (WhatsApp + Optional Email)
-        const waPickup = `sendWhatsAppDirect('${b.MemberPhone}', 'approved', '${b.BookTitle}', '${b.MemberName}')`;
-        const waReminder = `sendWhatsAppDirect('${b.MemberPhone}', 'dueSoon', '${b.BookTitle}', '${b.MemberName}', '${cleanDate(b.DueDate)}')`;
-        const mailClick = b.MemberEmail ? `mailto:${b.MemberEmail}?subject=Crosspoint%20Library%20Book%20Notice&body=Hello%20${encodeURIComponent(b.MemberName)},` : null;
+        // DYNAMIC PHONE LOOKUP (Checks member profile directly)
+        const currentPhone = getMemberCurrentPhone(b.MemberID, b.MemberPhone);
 
-        let contactHTML = `
-            <div class="flex items-center space-x-1">
-                <button onclick="${waPickup}" class="text-emerald-700 hover:text-emerald-900 px-1.5 py-1 border rounded bg-emerald-50 text-[11px] font-bold" title="Send WhatsApp">
-                    <i class="fa-brands fa-whatsapp text-sm text-emerald-600"></i> WhatsApp
-                </button>
-                ${mailClick ? `
-                    <a href="${mailClick}" class="text-church-700 hover:text-church-900 p-1 border rounded bg-church-50" title="Send Email">
-                        <i class="fa-solid fa-envelope"></i>
-                    </a>` : ''}
-            </div>`;
+        // Contact info display
+        let phoneDisplay = '';
+        if (currentPhone) {
+            phoneDisplay = `<span class="text-church-700 font-semibold">${currentPhone}</span>`;
+        } else {
+            phoneDisplay = `<button onclick="openEditMemberModal('${b.MemberID}')" class="text-amber-800 bg-amber-50 border border-amber-300 hover:bg-amber-100 px-1.5 py-0.5 rounded font-bold text-[10px]">➕ Add Phone</button>`;
+        }
 
-        // Circulation Actions per Stage
+        // Action Buttons
         let actionButtons = '';
         if (st === 'Pending') {
             actionButtons = `
-                <button onclick="adminApproveRequest('${b.BorrowID}', '${b.BookID}', '${b.Type}', '${b.MemberPhone}', '${b.MemberEmail}', '${b.MemberName}', '${b.BookTitle}')" class="bg-blue-700 hover:bg-blue-800 text-white px-2.5 py-1 rounded-lg text-xs font-bold transition mr-1">
+                <button onclick="adminApproveRequest('${b.BorrowID}', '${b.BookID}', '${b.Type}', '${currentPhone || ''}', '${b.MemberEmail || ''}', '${b.MemberName}', '${b.BookTitle}')" class="bg-blue-700 hover:bg-blue-800 text-white px-2.5 py-1 rounded-lg text-xs font-bold transition mr-1">
                     Approve
                 </button>
-                <button onclick="adminCancelRequest('${b.BorrowID}', '${b.BookID}', '${b.Type}', '${b.MemberEmail}', '${b.MemberName}', '${b.BookTitle}')" class="bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded-lg text-xs font-semibold">
+                <button onclick="adminCancelRequest('${b.BorrowID}', '${b.BookID}', '${b.Type}', '${b.MemberEmail || ''}', '${b.MemberName}', '${b.BookTitle}')" class="bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded-lg text-xs font-semibold">
                     Cancel
                 </button>`;
         } else if (st === 'Approved') {
@@ -724,7 +730,7 @@ function renderCirculationTable() {
                 <button onclick="openIssueModal('${b.BorrowID}')" class="bg-emerald-700 hover:bg-emerald-800 text-white px-2.5 py-1 rounded-lg text-xs font-bold transition mr-1">
                     Issue Book
                 </button>
-                <button onclick="adminCancelRequest('${b.BorrowID}', '${b.BookID}', '${b.Type}', '${b.MemberEmail}', '${b.MemberName}', '${b.BookTitle}')" class="bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded-lg text-xs font-semibold">
+                <button onclick="adminCancelRequest('${b.BorrowID}', '${b.BookID}', '${b.Type}', '${b.MemberEmail || ''}', '${b.MemberName}', '${b.BookTitle}')" class="bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 rounded-lg text-xs font-semibold">
                     Unclaimed
                 </button>`;
         } else if (st === 'Active') {
@@ -742,19 +748,24 @@ function renderCirculationTable() {
                 <td class="p-3 font-bold text-church-900">${b.BookTitle}</td>
                 <td class="p-3">
                     <p class="font-bold">${b.MemberName}</p>
-                    <p class="text-[10px] text-church-600">${b.MemberID} • ${b.MemberPhone || 'No Phone'}</p>
+                    <p class="text-[10px] text-church-600">${b.MemberID} • ${phoneDisplay}</p>
                 </td>
-                <td class="p-3 text-church-700">${cleanDate(b.PickupDate)}<br><span class="text-[10px] text-church-500">${b.PickupTime || '10:00'}</span></td>
+                <td class="p-3 text-church-700">${cleanDate(b.PickupDate)}<br><span class="text-[10px] text-church-500 font-bold">${cleanTime(b.PickupTime)}</span></td>
                 <td class="p-3 font-bold text-church-900">${cleanDate(b.DueDate)}</td>
                 <td class="p-3">${statusBadge}</td>
                 <td class="p-3 text-church-600 text-[11px]">${b.ConditionIssued ? `Out: <strong>${b.ConditionIssued}</strong>` : '—'}</td>
-                <td class="p-3">${contactHTML}</td>
+                <td class="p-3">
+                    <button onclick="triggerBorrowerWhatsApp('${b.MemberID}', '${b.MemberName}', '${b.BookTitle}', '${st}', '${cleanDate(b.DueDate)}')" 
+                            class="text-emerald-700 hover:text-emerald-900 px-2 py-1 border border-emerald-300 rounded-lg bg-emerald-50 text-[11px] font-bold flex items-center gap-1">
+                        <i class="fa-brands fa-whatsapp text-sm text-emerald-600"></i> WhatsApp
+                    </button>
+                </td>
                 <td class="p-3 text-right space-x-1">${actionButtons}</td>
             </tr>`;
     }).join('');
 }
 
-// 2. Members Table Renderer
+// Members Table
 function renderMembersTable() {
     const tbody = document.getElementById('admin-members-tbody');
     if (!tbody) return;
@@ -764,20 +775,12 @@ function renderMembersTable() {
             <td class="p-3 font-bold text-church-900">${m.MemberID}</td>
             <td class="p-3 font-medium">${m.FullName}</td>
             <td class="p-3"><span class="px-2 py-0.5 rounded bg-church-100 font-semibold text-xs">${m.Designation}</span></td>
-            <td class="p-3">${m.Phone || '—'}</td>
+            <td class="p-3 font-semibold">${m.Phone || '—'}</td>
             <td class="p-3 text-church-600">${m.Email || '—'}</td>
-            <td class="p-3">
-                <div class="flex items-center space-x-2">
-                    ${m.Phone ? `
-                        <button onclick="sendCustomWhatsApp('${m.Phone}', '${m.FullName}')" class="text-emerald-700 hover:text-emerald-900 font-bold flex items-center gap-1 text-xs">
-                            <i class="fa-brands fa-whatsapp text-sm"></i> Chat
-                        </button>` : ''}
-                    <button onclick="openEditMemberModal('${m.MemberID}')" class="text-church-600 hover:text-church-900 text-xs underline">
-                        Edit Contact
-                    </button>
-                </div>
-            </td>
-            <td class="p-3 text-right">
+            <td class="p-3 space-x-2">
+                <button onclick="openEditMemberModal('${m.MemberID}')" class="text-church-700 hover:text-church-900 text-xs font-bold underline">
+                    Edit Contact
+                </button>
                 <button onclick="deleteMember('${m.MemberID}')" class="text-red-600 hover:text-red-800 p-1" title="Delete Member">
                     <i class="fa-solid fa-trash"></i>
                 </button>
@@ -786,7 +789,6 @@ function renderMembersTable() {
     `).join('');
 }
 
-// 3. Timeline & Analytics Filter
 function applyAnalyticsTimelineFilter() {
     const fromInput = document.getElementById('analytics-date-from');
     const toInput = document.getElementById('analytics-date-to');
@@ -835,10 +837,7 @@ function applyAnalyticsTimelineFilter() {
     document.getElementById('stat-top-book').textContent = topBook;
 }
 
-// ==========================================
-// LIBRARIAN CIRCULATION ACTIONS
-// ==========================================
-
+// Circulation Actions
 function adminApproveRequest(borrowId, bookId, type, phone, email, name, title) {
     fetch(API_URL, {
         method: "POST",
@@ -893,19 +892,13 @@ function openIssueModal(borrowId) {
 
     document.getElementById('issue-modal-book').textContent = borrow.BookTitle;
     document.getElementById('issue-modal-member').textContent = `${borrow.MemberName} (${borrow.MemberID})`;
-    
-    // Auto populate today as physical checkout date
-    const todayStr = new Date().toISOString().split('T')[0];
-    document.getElementById('issue-date-input').value = todayStr;
-
+    document.getElementById('issue-date-input').value = new Date().toISOString().split('T')[0];
     document.getElementById('issue-modal').classList.remove('hidden');
 }
 
 function confirmAdminIssue() {
     if (!targetIssueBorrow) return;
-    const condSelect = document.getElementById('issue-condition-select').value;
-    const condOther = document.getElementById('issue-condition-other').value.trim();
-    const finalCond = condSelect === 'Other' && condOther ? condOther : condSelect;
+    const cond = document.getElementById('issue-condition-select').value;
     const issueDate = document.getElementById('issue-date-input').value;
 
     fetch(API_URL, {
@@ -915,7 +908,7 @@ function confirmAdminIssue() {
             borrowId: targetIssueBorrow.BorrowID,
             bookId: targetIssueBorrow.BookID,
             borrowType: targetIssueBorrow.Type,
-            condition: finalCond,
+            condition: cond,
             issuedDate: issueDate
         })
     })
@@ -933,11 +926,7 @@ function openReturnModal(borrowId) {
     targetReturnBorrow = borrow;
 
     document.getElementById('return-modal-book').textContent = borrow.BookTitle;
-    document.getElementById('return-modal-issued-cond').textContent = borrow.ConditionIssued || 'Good';
-    
-    const todayStr = new Date().toISOString().split('T')[0];
-    document.getElementById('return-date-input').value = todayStr;
-
+    document.getElementById('return-date-input').value = new Date().toISOString().split('T')[0];
     document.getElementById('return-modal').classList.remove('hidden');
 }
 
@@ -1020,7 +1009,7 @@ function adminRegisterMember() {
 }
 
 function openEditMemberModal(memberId) {
-    const m = allMembers.find(mem => mem.MemberID === memberId);
+    const m = allMembers.find(mem => (mem.MemberID || '').toString().toUpperCase() === memberId.toString().toUpperCase());
     if (!m) return;
     targetEditMember = m;
 
@@ -1048,7 +1037,7 @@ function saveMemberContact() {
     })
     .then(r => r.json())
     .then(res => {
-        alert("Member contact information updated!");
+        alert("Contact details saved and synced across all loan records!");
         closeModal('edit-member-modal');
         fetchLibraryData();
     });
@@ -1062,9 +1051,23 @@ function deleteMember(id) {
     }).then(() => fetchLibraryData());
 }
 
-// ==========================================
-// WHATSAPP NOTIFICATION ENGINE
-// ==========================================
+// WhatsApp Engine with Auto-Prompt for Missing Phone
+function triggerBorrowerWhatsApp(memberId, memberName, bookTitle, stage, dueDate) {
+    const currentPhone = getMemberCurrentPhone(memberId, null);
+    if (!currentPhone) {
+        alert(`No phone number on file for ${memberName} (${memberId}). Please add their number now.`);
+        openEditMemberModal(memberId);
+        return;
+    }
+
+    if (stage === 'Pending') {
+        sendWhatsAppDirect(currentPhone, 'pending', bookTitle, memberName);
+    } else if (stage === 'Approved') {
+        sendWhatsAppDirect(currentPhone, 'approved', bookTitle, memberName);
+    } else {
+        sendWhatsAppDirect(currentPhone, 'dueSoon', bookTitle, memberName, dueDate);
+    }
+}
 
 function formatPhoneForWhatsApp(phone) {
     if (!phone) return null;
@@ -1077,34 +1080,42 @@ function formatPhoneForWhatsApp(phone) {
 function sendWhatsAppDirect(phone, type, bookTitle, memberName, dueDate) {
     const cleanPhone = formatPhoneForWhatsApp(phone);
     if (!cleanPhone) {
-        alert("This member does not have a phone number on file.\n\nPlease click 'Edit Contact' in the Members Directory to add their WhatsApp number.");
+        alert("Invalid phone format. Please enter a valid number (e.g. 0712345678).");
         return;
     }
 
     let msg = "";
     if (type === 'approved') {
-        msg = `Hello ${memberName}, your request for "${bookTitle}" at Crosspoint Bible Church Library has been APPROVED! Please pick it up at the church study desk in Kiamunyi.`;
+        msg = `Hello ${memberName},\n\nYour borrow request for "${bookTitle}" at Crosspoint Bible Church Library has been APPROVED!\n\nPlease collect your volume at the church study desk in Kiamunyi.\n\nBlessings,\n${churchLibrarySettings.adminName}`;
     } else if (type === 'dueSoon') {
-        msg = `Reminder from Crosspoint Bible Church Library: "${bookTitle}" is due on ${dueDate}. Please return it or request an extension.`;
+        msg = `Reminder from Crosspoint Bible Church Library:\n\nHello ${memberName}, your borrowed book "${bookTitle}" is due on ${dueDate}. Please prepare to return it or request a 2-week extension.\n\nBlessings,\n${churchLibrarySettings.adminName}`;
+    } else {
+        msg = `Hello ${memberName}, this is regarding your library loan for "${bookTitle}" at Crosspoint Bible Church.`;
     }
 
     window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
-function sendCustomWhatsApp(phone, memberName) {
-    const cleanPhone = formatPhoneForWhatsApp(phone);
-    if (!cleanPhone) {
-        alert("No phone on file for this member.");
-        return;
-    }
-    const msg = `Hello ${memberName}, this is the Crosspoint Bible Church Library coordinator.`;
-    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
+// Admin / Library Settings
+function openAdminSettingsModal() {
+    document.getElementById('setting-admin-name').value = churchLibrarySettings.adminName || '';
+    document.getElementById('setting-admin-phone').value = churchLibrarySettings.adminPhone || '';
+    document.getElementById('setting-admin-email').value = churchLibrarySettings.adminEmail || '';
+    document.getElementById('admin-settings-modal').classList.remove('hidden');
 }
 
-// ==========================================
-// GROUP READING ENGINE
-// ==========================================
+function saveAdminSettings() {
+    churchLibrarySettings = {
+        adminName: document.getElementById('setting-admin-name').value.trim() || "Library Coordinator",
+        adminPhone: document.getElementById('setting-admin-phone').value.trim() || "+254 704 486 616",
+        adminEmail: document.getElementById('setting-admin-email').value.trim() || "cbcnakuru@gmail.com"
+    };
+    localStorage.setItem('cbc_admin_settings', JSON.stringify(churchLibrarySettings));
+    alert("Official church library settings saved!");
+    closeModal('admin-settings-modal');
+}
 
+// Group Reading
 function openGroupModal(groupId) {
     const group = allGroups.find(g => g.GroupID == groupId);
     if (!group) return;
@@ -1181,7 +1192,7 @@ function openCreateGroupModal() {
 }
 
 window.addEventListener('click', (e) => {
-    const ids = ['login-modal', 'book-modal', 'borrow-modal', 'onsite-modal', 'issue-modal', 'return-modal', 'group-modal', 'create-group-modal', 'my-requests-modal', 'edit-member-modal'];
+    const ids = ['login-modal', 'book-modal', 'borrow-modal', 'onsite-modal', 'issue-modal', 'return-modal', 'group-modal', 'create-group-modal', 'my-requests-modal', 'edit-member-modal', 'admin-settings-modal'];
     ids.forEach(id => {
         const el = document.getElementById(id);
         if (el && e.target === el) el.classList.add('hidden');
