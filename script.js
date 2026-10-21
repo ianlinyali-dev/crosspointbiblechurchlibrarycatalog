@@ -1,11 +1,9 @@
 // ==========================================
 // CROSSPOINT BIBLE CHURCH LIBRARY - SCRIPT.JS
-// Backend: Google Apps Script + Google Drive
 // ==========================================
 
 const API_URL = "https://script.google.com/macros/s/AKfycbxbdtpv-cAJVkvVHUSC_dspsRQWjkL0PwS4wrAm7Mc0ZcIAGXTxkqlX7-2b8n0y2gzVZg/exec";
 
-// Global Application State
 let allBooks = [];
 let filteredBooks = [];
 let allMembers = [];
@@ -16,29 +14,36 @@ const BOOKS_PER_PAGE = 6;
 let currentUser = JSON.parse(localStorage.getItem('cbc_user')) || null;
 let activeBookForAction = null;
 
-// ==========================================
-// 1. INITIALIZATION & DATA FETCHING
-// ==========================================
-
 document.addEventListener('DOMContentLoaded', () => {
-    // Set footer year
     const yearEl = document.getElementById('current-year');
     if (yearEl) yearEl.textContent = new Date().getFullYear();
 
-    // Setup user interface state (logged-in badge)
     updateUserAuthUI();
-
-    // Fetch initial database records from Google Sheets
     fetchLibraryData();
 
-    // Setup Search & Category Filter Listeners
     const searchInput = document.getElementById('search-input');
     const categoryFilter = document.getElementById('category-filter');
     if (searchInput) searchInput.addEventListener('input', handleSearchAndFilter);
     if (categoryFilter) categoryFilter.addEventListener('change', handleSearchAndFilter);
 });
 
-// Fetch all sheets from your Google Drive Spreadsheet
+// Normalize book objects so they work with both Google Sheet headers and books.json
+function normalizeBook(raw) {
+    return {
+        id: raw.id || raw.BookID || 1,
+        title: raw.title || raw.Title || 'Untitled',
+        author: raw.author || raw.Author || 'Unknown Author',
+        category: raw.category || raw.Category || 'General',
+        publicationDate: raw.publicationDate || raw.PublicationDate || 'N/A',
+        copies: (raw.AvailableCopies !== undefined && raw.AvailableCopies !== "") ? parseInt(raw.AvailableCopies) : (parseInt(raw.copies) || 1),
+        pages: raw.pages || raw.Pages || 'N/A',
+        classification: raw.classification || raw.Classification || 'Borrowable',
+        description: raw.description || raw.Description || '',
+        image: raw.image || raw.ImageURL || 'images/churchdiscipline.jpeg',
+        keywords: raw.keywords || []
+    };
+}
+
 function fetchLibraryData() {
     const grid = document.getElementById('book-grid');
     if (grid && displayedCount === 0) {
@@ -52,49 +57,44 @@ function fetchLibraryData() {
     fetch(`${API_URL}?action=getAllData`)
         .then(res => res.json())
         .then(data => {
-            allBooks = data.books && data.books.length > 0 ? data.books : [];
+            const rawBooks = data.books || [];
             allMembers = data.members || [];
             allBorrows = data.borrows || [];
             allGroups = data.groups || [];
 
-            // If the Google Sheet Books tab is empty yet, fallback to local books.json
-            if (allBooks.length === 0) {
-                return fetch('books.json')
+            // If the Google Sheet is empty, read books.json AND automatically save it to Google Sheet!
+            if (rawBooks.length === 0) {
+                fetch('books.json')
                     .then(r => r.json())
                     .then(fallback => {
-                        allBooks = fallback;
-                        filteredBooks = fallback;
+                        allBooks = fallback.map(normalizeBook);
+                        filteredBooks = allBooks;
                         initCatalog();
+
+                        // Automatically send to Google Sheet so it is never empty again!
+                        fetch(API_URL, {
+                            method: "POST",
+                            body: JSON.stringify({ action: "seedBooks", books: fallback })
+                        });
                     });
             } else {
+                allBooks = rawBooks.map(normalizeBook);
                 filteredBooks = allBooks;
                 initCatalog();
                 checkUserDueAlerts();
             }
         })
         .catch(err => {
-            console.warn("Could not reach Google Sheets API, loading local books.json fallback:", err);
+            console.warn("Using fallback books.json:", err);
             fetch('books.json')
                 .then(r => r.json())
                 .then(fallback => {
-                    allBooks = fallback;
-                    filteredBooks = fallback;
+                    allBooks = fallback.map(normalizeBook);
+                    filteredBooks = allBooks;
                     initCatalog();
-                })
-                .catch(e => {
-                    if (grid) {
-                        grid.innerHTML = `
-                            <div class="col-span-full text-center py-10 text-red-600">
-                                <p>Failed to load books catalog. Please check your internet connection.</p>
-                            </div>`;
-                    }
                 });
         });
 }
-
-// ==========================================
-// 2. CATALOG DISPLAY & SEARCH FILTERING
-// ==========================================
 
 function initCatalog() {
     displayedCount = 0;
@@ -121,15 +121,13 @@ function loadMoreBooks() {
     const nextBatch = filteredBooks.slice(displayedCount, displayedCount + BOOKS_PER_PAGE);
 
     nextBatch.forEach(book => {
-        const classification = book.classification || 'Borrowable';
-        const isBorrowable = classification.toLowerCase().includes('borrowable');
+        const isBorrowable = (book.classification || '').toLowerCase().includes('borrowable');
         const badgeClass = isBorrowable ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800';
         const copies = parseInt(book.copies) || 0;
 
         let shortDesc = book.description || '';
         if (shortDesc.length > 110) shortDesc = shortDesc.substring(0, 110).trim() + '...';
 
-        // Check if there is an open group reading for this book
         const activeGroup = allGroups.find(g => g.BookID == book.id && g.Status === 'Open');
         let groupHTML = '';
         if (activeGroup) {
@@ -152,13 +150,13 @@ function loadMoreBooks() {
                 <div class="h-64 bg-church-50 overflow-hidden relative p-2 flex items-center justify-center border-b border-church-100">
                     <img src="${book.image}" alt="${book.title}" loading="lazy" class="w-full h-full object-contain group-hover:scale-105 transition duration-300 drop-shadow-sm">
                     <span class="absolute top-3 right-3 text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm ${badgeClass}">
-                        ${classification}
+                        ${book.classification}
                     </span>
                 </div>
                 <div class="p-5 space-y-2">
                     <div class="flex items-center justify-between text-xs">
-                        <span class="font-medium text-church-600 uppercase tracking-wide">${book.category || 'General'}</span>
-                        <span class="text-church-500"><i class="fa-solid fa-book-open mr-1"></i>${book.pages || 'N/A'} pages</span>
+                        <span class="font-medium text-church-600 uppercase tracking-wide">${book.category}</span>
+                        <span class="text-church-500"><i class="fa-solid fa-book-open mr-1"></i>${book.pages} pages</span>
                     </div>
                     <h3 class="font-bold text-church-900 text-base leading-snug group-hover:text-church-600 transition">${book.title}</h3>
                     <p class="text-xs text-church-700 font-medium">By ${book.author}</p>
@@ -194,19 +192,13 @@ function handleSearchAndFilter() {
         const matchesQuery = 
             (book.title || '').toLowerCase().includes(query) ||
             (book.author || '').toLowerCase().includes(query) ||
-            (book.category || '').toLowerCase().includes(query) ||
-            (book.keywords && Array.isArray(book.keywords) && book.keywords.some(k => k.toLowerCase().includes(query)));
-        
+            (book.category || '').toLowerCase().includes(query);
         const matchesCat = cat === "" || (book.category || '') === cat;
         return matchesQuery && matchesCat;
     });
 
     initCatalog();
 }
-
-// ==========================================
-// 3. MEMBER AUTHENTICATION (ID + NAME ONLY)
-// ==========================================
 
 function updateUserAuthUI() {
     const container = document.getElementById('user-auth-badge');
@@ -242,7 +234,6 @@ function loginMember() {
         return;
     }
 
-    // Match with members fetched from Google Sheet
     const matched = allMembers.find(m => 
         (m.MemberID || '').toString().toUpperCase() === id && 
         (m.FullName || '').toString().trim().toLowerCase() === name
@@ -261,7 +252,7 @@ function loginMember() {
         checkUserDueAlerts();
         alert(`Welcome, ${currentUser.name}! You are signed in as a ${currentUser.designation}.`);
     } else {
-        alert("Member ID and Name do not match our church records. Please ask the church librarian to register you first.");
+        alert("Member ID and Name do not match our church records. Please register with the librarian.");
     }
 }
 
@@ -273,7 +264,6 @@ function logoutUser() {
     if (banner) banner.classList.add('hidden');
 }
 
-// In-app overdue / due-soon banner notification
 function checkUserDueAlerts() {
     if (!currentUser) return;
     const userLoans = allBorrows.filter(b => b.MemberID == currentUser.id && b.Status === 'Active');
@@ -288,28 +278,23 @@ function checkUserDueAlerts() {
     }
 }
 
-// ==========================================
-// 4. BOOK DETAILS MODAL & ACTIONS
-// ==========================================
-
 function openBookModal(book) {
     activeBookForAction = book;
     document.getElementById('modal-title').textContent = book.title;
     document.getElementById('modal-img').src = book.image;
     document.getElementById('modal-author').textContent = book.author;
-    document.getElementById('modal-category').textContent = book.category || 'General';
-    document.getElementById('modal-pubdate').textContent = book.publicationDate || 'N/A';
-    document.getElementById('modal-pages').textContent = (book.pages || 'N/A') + " pages";
+    document.getElementById('modal-category').textContent = book.category;
+    document.getElementById('modal-pubdate').textContent = book.publicationDate;
+    document.getElementById('modal-pages').textContent = book.pages + " pages";
     document.getElementById('modal-copies').textContent = book.copies;
-    document.getElementById('modal-description').textContent = book.description || 'No description available for this volume.';
+    document.getElementById('modal-description').textContent = book.description || 'No description available.';
 
     const classificationEl = document.getElementById('modal-classification');
-    const classification = book.classification || 'Borrowable';
-    const isBorrowable = classification.toLowerCase().includes('borrowable');
+    const isBorrowable = (book.classification || '').toLowerCase().includes('borrowable');
     const isPastor = currentUser && (currentUser.designation || '').toLowerCase() === 'pastor';
     const copies = parseInt(book.copies) || 0;
 
-    classificationEl.textContent = classification;
+    classificationEl.textContent = book.classification;
     classificationEl.className = isBorrowable ? 
         "inline-block px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800" : 
         "inline-block px-2 py-0.5 rounded text-xs font-semibold bg-amber-100 text-amber-800";
@@ -325,7 +310,6 @@ function openBookModal(book) {
         actionBtn.innerHTML = `<span>Request to Borrow</span>`;
         actionBtn.onclick = () => openBorrowForm(false);
     } else {
-        // Onsite Only book
         if (isPastor) {
             actionBtn.className = "px-4 py-2 bg-purple-700 hover:bg-purple-800 text-white rounded-xl text-xs font-medium shadow transition";
             actionBtn.innerHTML = `<span>Borrow (Pastor Privilege)</span>`;
@@ -339,10 +323,6 @@ function openBookModal(book) {
 
     document.getElementById('book-modal').classList.remove('hidden');
 }
-
-// ==========================================
-// 5. BORROWING & ONSITE READING WORKFLOW
-// ==========================================
 
 function openBorrowForm(isPastorPrivilege) {
     if (!currentUser) {
@@ -368,7 +348,7 @@ function openBorrowForm(isPastorPrivilege) {
 function updateCalculatedDueDate(pickupDateStr) {
     if (!pickupDateStr) return;
     const pDate = new Date(pickupDateStr);
-    pDate.setDate(pDate.getDate() + 14); // Exactly 2 weeks
+    pDate.setDate(pDate.getDate() + 14);
     document.getElementById('borrow-return-date').textContent = pDate.toISOString().split('T')[0];
 }
 
@@ -394,7 +374,7 @@ function submitBorrowRequest() {
 
     const submitBtn = document.getElementById('btn-submit-borrow');
     submitBtn.disabled = true;
-    submitBtn.textContent = "Submitting to Church Library...";
+    submitBtn.textContent = "Submitting...";
 
     fetch(API_URL, {
         method: "POST",
@@ -405,9 +385,9 @@ function submitBorrowRequest() {
         submitBtn.disabled = false;
         submitBtn.textContent = "Confirm Borrow Request";
         if (res.status === "success") {
-            alert(`Request received! Please pick up the book at Crosspoint Bible Church on ${pickupDate} at ${pickupTime}.\n\nCalculated Due Date (2 weeks): ${res.dueDate}`);
+            alert(`Request received! Please pick up the book at Crosspoint Bible Church on ${pickupDate} at ${pickupTime}.\n\nReturn Date (2 weeks): ${res.dueDate}`);
             closeModal('borrow-modal');
-            fetchLibraryData(); // Refreshes available copy counts
+            fetchLibraryData();
         } else {
             alert("Error: " + res.message);
         }
@@ -415,7 +395,7 @@ function submitBorrowRequest() {
     .catch(err => {
         submitBtn.disabled = false;
         submitBtn.textContent = "Confirm Borrow Request";
-        alert("Request processed or queued. Please verify pickup with the librarian.");
+        alert("Request processed! Please confirm pickup details with the church librarian.");
         closeModal('borrow-modal');
         fetchLibraryData();
     });
@@ -459,20 +439,16 @@ function submitOnsiteSchedule() {
     })
     .then(r => r.json())
     .then(res => {
-        alert(`Your reading reservation at Crosspoint study corner has been recorded for ${date} at ${time}.`);
+        alert(`Your reading slot at Crosspoint study corner has been reserved for ${date} at ${time}.`);
         closeModal('onsite-modal');
         fetchLibraryData();
     })
     .catch(() => {
-        alert("Reservation logged successfully!");
+        alert("Reservation logged!");
         closeModal('onsite-modal');
         fetchLibraryData();
     });
 }
-
-// ==========================================
-// 6. GROUP READING FEATURE
-// ==========================================
 
 function openGroupModal(groupId) {
     const group = allGroups.find(g => g.GroupID == groupId);
@@ -480,7 +456,7 @@ function openGroupModal(groupId) {
 
     document.getElementById('grp-book-title').textContent = group.BookTitle;
     document.getElementById('grp-leader').textContent = group.LeaderName;
-    document.getElementById('grp-notes').textContent = group.MeetingNotes || "No specific instructions provided.";
+    document.getElementById('grp-notes').textContent = group.MeetingNotes || "No specific instructions.";
     
     const members = group.JoinedMemberIDs ? group.JoinedMemberIDs.toString().split(',') : [];
     document.getElementById('grp-capacity').textContent = `${members.length} / ${group.MaxLimit} members joined`;
@@ -547,31 +523,21 @@ function submitCreateGroup() {
         alert("Group reading invite published to catalog!");
         closeModal('create-group-modal');
         fetchLibraryData();
-    })
-    .catch(() => {
-        alert("Group reading published!");
-        closeModal('create-group-modal');
-        fetchLibraryData();
     });
 }
 
-// ==========================================
-// 7. LIBRARIAN ADMIN PANEL & CIRCULATION
-// ==========================================
-
 function checkAdminAccess() {
     const pin = prompt("Enter Librarian Admin PIN:");
-    if (pin === "1234") { // Default PIN
+    if (pin === "1234") {
         document.getElementById('admin-panel').classList.remove('hidden');
         renderAdminTables();
         window.location.hash = "admin-panel";
     } else if (pin !== null) {
-        alert("Incorrect PIN. Access restricted to library admins.");
+        alert("Incorrect PIN.");
     }
 }
 
 function renderAdminTables() {
-    // 1. Members Directory Table
     const memberTbody = document.getElementById('admin-members-tbody');
     if (memberTbody) {
         memberTbody.innerHTML = allMembers.map(m => `
@@ -589,7 +555,6 @@ function renderAdminTables() {
         `).join('');
     }
 
-    // 2. Circulation (Borrows & Requests) Table
     const borrowsTbody = document.getElementById('admin-borrows-tbody');
     if (borrowsTbody) {
         borrowsTbody.innerHTML = allBorrows.map(b => `
@@ -622,7 +587,6 @@ function renderAdminTables() {
         `).join('');
     }
 
-    // 3. Update Analytics Counters
     const statBorrows = document.getElementById('stat-total-borrows');
     const statActive = document.getElementById('stat-active-loans');
     const statMembers = document.getElementById('stat-total-members');
@@ -668,7 +632,7 @@ function adminRegisterMember() {
         }
     })
     .catch(() => {
-        alert("Member added to church database!");
+        alert("Member added!");
         idInput.value = '';
         nameInput.value = '';
         phoneInput.value = '';
@@ -692,7 +656,7 @@ function adminIssueBook(borrowId) {
         method: "POST",
         body: JSON.stringify({ action: "issueBook", borrowId: borrowId, condition: cond })
     }).then(() => {
-        alert("Book successfully issued to borrower!");
+        alert("Book marked as issued!");
         fetchLibraryData();
     });
 }
@@ -709,10 +673,6 @@ function adminExtendLoan(borrowId) {
         } else {
             alert(res.message || "Could not extend loan.");
         }
-        fetchLibraryData();
-    })
-    .catch(() => {
-        alert("Extension logged successfully.");
         fetchLibraryData();
     });
 }
@@ -733,14 +693,10 @@ function adminReturnBook(borrowId, bookId, type) {
             penalty: penalty || "None"
         })
     }).then(() => {
-        alert("Book marked as returned. Available inventory copy restored!");
+        alert("Book marked as returned.");
         fetchLibraryData();
     });
 }
-
-// ==========================================
-// 8. MODAL CONTROLS & EVENT LISTENERS
-// ==========================================
 
 function openLoginModal() { 
     const el = document.getElementById('login-modal');
@@ -758,7 +714,6 @@ function openCreateGroupModal() {
     if (el) el.classList.remove('hidden');
 }
 
-// Dismiss modals when clicking on background backdrop
 window.addEventListener('click', (e) => {
     const modalIds = ['login-modal', 'book-modal', 'borrow-modal', 'onsite-modal', 'group-modal', 'create-group-modal'];
     modalIds.forEach(id => {
