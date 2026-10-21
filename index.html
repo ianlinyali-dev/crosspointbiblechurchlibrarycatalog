@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en" class="scroll-smooth">
 <head>
@@ -70,7 +71,6 @@
 
     <!-- Main Catalog View -->
     <main id="catalog" class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
-        <!-- Search & Filter Controls -->
         <div class="bg-white p-5 rounded-2xl shadow-sm border border-church-200 mb-8">
             <div class="flex flex-col md:flex-row gap-4 items-center justify-between">
                 <div class="relative w-full md:w-1/2">
@@ -95,10 +95,8 @@
             </div>
         </div>
 
-        <!-- Book Cards Grid -->
         <div id="book-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
 
-        <!-- Pagination -->
         <div id="load-more-container" class="hidden text-center mt-12">
             <button id="load-more-btn" onclick="loadMoreBooks()" class="bg-church-100 hover:bg-church-200 text-church-900 border border-church-300 font-semibold px-6 py-2.5 rounded-xl text-sm transition">
                 Load More Books <i class="fa-solid fa-chevron-down ml-2 text-xs"></i>
@@ -108,12 +106,11 @@
         <div id="no-results" class="hidden text-center py-16">
             <i class="fa-solid fa-book-bookmark text-4xl text-church-600 mb-3"></i>
             <h3 class="text-base font-bold text-church-900">No books found</h3>
-            <p class="text-xs text-church-600 mt-1">Try tweaking your search keywords or filter category.</p>
         </div>
     </main>
 
     <!-- ======================================================== -->
-    <!-- LIBRARIAN CONSOLE (Strict 4-Stage Lifecycle & Tabs) -->
+    <!-- LIBRARIAN CONSOLE -->
     <!-- ======================================================== -->
     <section id="admin-panel" class="hidden bg-white border-t-4 border-church-800 shadow-2xl py-8 px-4 sm:px-6 lg:px-8">
         <div class="max-w-7xl mx-auto space-y-6">
@@ -124,12 +121,17 @@
                     </h2>
                     <p class="text-xs text-church-600">Circulation control, stage-by-stage approvals, member contact directory, and analytics.</p>
                 </div>
-                <button onclick="exitLibrarianConsole()" class="bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-xs px-3.5 py-1.5 rounded-xl font-bold transition">
-                    <i class="fa-solid fa-door-open mr-1"></i> Exit Librarian Terminal
-                </button>
+                <div class="flex items-center space-x-2">
+                    <button onclick="openAdminSettingsModal()" class="border border-church-300 hover:bg-church-50 text-church-800 text-xs px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-gear"></i> Library Settings
+                    </button>
+                    <button onclick="exitLibrarianConsole()" class="bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-xs px-3.5 py-1.5 rounded-xl font-bold transition">
+                        <i class="fa-solid fa-door-open mr-1"></i> Exit Admin
+                    </button>
+                </div>
             </div>
 
-            <!-- Window Toggle Buttons (Tabs) -->
+            <!-- Window Toggle Tabs -->
             <div class="flex flex-wrap gap-2 border-b border-church-200 pb-2">
                 <button id="tab-btn-circulation" onclick="switchAdminTab('circulation')" class="admin-tab-btn active px-4 py-2 rounded-xl text-xs font-bold bg-church-800 text-white shadow-sm flex items-center gap-2">
                     <i class="fa-solid fa-book-open"></i> Circulation Desk
@@ -143,15 +145,15 @@
                 </button>
             </div>
 
-            <!-- WINDOW 1: CIRCULATION DESK (STAGE TABS) -->
+            <!-- WINDOW 1: CIRCULATION DESK -->
             <div id="admin-window-circulation" class="space-y-4">
                 <div class="flex items-center justify-between">
                     <div class="flex flex-wrap gap-2">
                         <button onclick="filterCirculationStatus('All')" class="circ-filter-btn active text-xs px-3 py-1.5 rounded-lg bg-church-200 font-bold">All (<span id="count-all">0</span>)</button>
-                        <button onclick="filterCirculationStatus('Pending')" class="circ-filter-btn text-xs px-3 py-1.5 rounded-lg bg-amber-50 text-amber-900 border border-amber-200 font-bold">🟡 Pending Approval (<span id="count-pending">0</span>)</button>
-                        <button onclick="filterCirculationStatus('Approved')" class="circ-filter-btn text-xs px-3 py-1.5 rounded-lg bg-blue-50 text-blue-900 border border-blue-200 font-bold">🔵 Approved / Ready (<span id="count-approved">0</span>)</button>
-                        <button onclick="filterCirculationStatus('Active')" class="circ-filter-btn text-xs px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-900 border border-emerald-200 font-bold">🟢 Active Loans (<span id="count-active">0</span>)</button>
-                        <button onclick="filterCirculationStatus('Returned')" class="circ-filter-btn text-xs px-3 py-1.5 rounded-lg bg-church-100 font-bold">Returned History (<span id="count-returned">0</span>)</button>
+                        <button onclick="filterCirculationStatus('Pending')" class="circ-filter-btn text-xs px-3 py-1.5 rounded-lg bg-amber-50 text-amber-900 border border-amber-200 font-bold">🟡 Pending (<span id="count-pending">0</span>)</button>
+                        <button onclick="filterCirculationStatus('Approved')" class="circ-filter-btn text-xs px-3 py-1.5 rounded-lg bg-blue-50 text-blue-900 border border-blue-200 font-bold">🔵 Approved (<span id="count-approved">0</span>)</button>
+                        <button onclick="filterCirculationStatus('Active')" class="circ-filter-btn text-xs px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-900 border border-emerald-200 font-bold">🟢 Active (<span id="count-active">0</span>)</button>
+                        <button onclick="filterCirculationStatus('Returned')" class="circ-filter-btn text-xs px-3 py-1.5 rounded-lg bg-church-100 font-bold">Returned (<span id="count-returned">0</span>)</button>
                     </div>
                 </div>
 
@@ -161,11 +163,11 @@
                             <tr>
                                 <th class="p-3">Book Title</th>
                                 <th class="p-3">Borrower Details</th>
-                                <th class="p-3">Pickup Date</th>
+                                <th class="p-3">Pickup Time</th>
                                 <th class="p-3">Due Date</th>
-                                <th class="p-3">Current Stage</th>
+                                <th class="p-3">Stage</th>
                                 <th class="p-3">Condition Info</th>
-                                <th class="p-3">Direct Contact</th>
+                                <th class="p-3">Contact WhatsApp</th>
                                 <th class="p-3 text-right">Circulation Actions</th>
                             </tr>
                         </thead>
@@ -205,8 +207,7 @@
                                 <th class="p-3">Designation</th>
                                 <th class="p-3">Phone</th>
                                 <th class="p-3">Email</th>
-                                <th class="p-3">Quick Contact</th>
-                                <th class="p-3 text-right">Actions</th>
+                                <th class="p-3">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="admin-members-tbody" class="divide-y divide-church-100"></tbody>
@@ -217,7 +218,7 @@
             <!-- WINDOW 3: TIMELINE & ANALYTICS -->
             <div id="admin-window-analytics" class="hidden space-y-6">
                 <div class="bg-church-50 p-4 rounded-2xl border border-church-200 space-y-3">
-                    <h3 class="text-xs font-bold text-church-900 uppercase tracking-wider">Specify Borrowing Timeline & Book Filter</h3>
+                    <h3 class="text-xs font-bold text-church-900 uppercase tracking-wider">Specify Borrowing Timeline & Filter</h3>
                     <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
                         <div>
                             <label class="block font-semibold mb-1 text-church-700">From Date</label>
@@ -263,7 +264,7 @@
                                 <th class="p-3">Pickup Date</th>
                                 <th class="p-3">Due Date</th>
                                 <th class="p-3">Status</th>
-                                <th class="p-3">Penalty / Notes</th>
+                                <th class="p-3">Notes</th>
                             </tr>
                         </thead>
                         <tbody id="analytics-borrows-tbody" class="divide-y divide-church-100"></tbody>
@@ -281,11 +282,57 @@
 
     <!-- ==================== MODALS ==================== -->
 
-    <!-- MODAL 1: Member Login -->
+    <!-- MODAL: Library Admin Settings -->
+    <div id="admin-settings-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-2xl border">
+            <h3 class="text-base font-bold text-church-900 flex items-center gap-2">
+                <i class="fa-solid fa-gear text-church-700"></i> Library Admin Settings
+            </h3>
+            <p class="text-xs text-church-600">These official details represent the church library when communicating with borrowers.</p>
+            <div>
+                <label class="text-[11px] font-bold uppercase text-church-700">Librarian Coordinator Name</label>
+                <input id="setting-admin-name" type="text" placeholder="e.g. Elder Joseph" class="w-full mt-1 p-2 border rounded-xl text-xs bg-church-50">
+            </div>
+            <div>
+                <label class="text-[11px] font-bold uppercase text-church-700">Church Library WhatsApp / Phone</label>
+                <input id="setting-admin-phone" type="text" placeholder="e.g. +254 704 486 616" class="w-full mt-1 p-2 border rounded-xl text-xs bg-church-50">
+            </div>
+            <div>
+                <label class="text-[11px] font-bold uppercase text-church-700">Official Library Email</label>
+                <input id="setting-admin-email" type="email" placeholder="cbcnakuru@gmail.com" class="w-full mt-1 p-2 border rounded-xl text-xs bg-church-50">
+            </div>
+            <div class="flex justify-end space-x-2 pt-2">
+                <button onclick="closeModal('admin-settings-modal')" class="px-4 py-2 border rounded-xl text-xs">Cancel</button>
+                <button onclick="saveAdminSettings()" class="px-5 py-2 bg-church-800 text-white rounded-xl text-xs font-bold">Save Settings</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Quick Add / Edit Phone -->
+    <div id="edit-member-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-2xl border">
+            <h3 class="text-base font-bold text-church-900">Update Borrower Contact</h3>
+            <p class="text-xs text-church-600">Member: <strong id="edit-mem-name"></strong> (<span id="edit-mem-id"></span>)</p>
+            <div>
+                <label class="text-xs font-bold block mb-1">WhatsApp Phone Number</label>
+                <input id="edit-mem-phone" type="text" placeholder="e.g. 0712345678 or +254..." class="w-full p-2.5 border rounded-xl text-xs bg-church-50 font-bold">
+                <p class="text-[10px] text-church-500 mt-1">Entering this immediately enables 1-click WhatsApp messaging for all their book requests.</p>
+            </div>
+            <div>
+                <label class="text-xs font-bold block mb-1">Email (Optional)</label>
+                <input id="edit-mem-email" type="email" placeholder="example@gmail.com" class="w-full p-2.5 border rounded-xl text-xs bg-church-50">
+            </div>
+            <div class="flex justify-end space-x-2 pt-2">
+                <button onclick="closeModal('edit-member-modal')" class="px-4 py-2 border rounded-xl text-xs">Cancel</button>
+                <button onclick="saveMemberContact()" class="px-5 py-2 bg-church-800 text-white rounded-xl text-xs font-bold">Save Contact</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Member Sign In -->
     <div id="login-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-xl border">
             <h3 class="text-base font-bold text-church-900">Member Sign In</h3>
-            <p class="text-xs text-church-600">Enter your assigned Member ID and Name as registered with Crosspoint Library.</p>
             <div>
                 <label class="text-[11px] font-bold uppercase text-church-700">Member ID</label>
                 <input id="login-id" type="text" placeholder="e.g. CBC-001" class="w-full mt-1 p-2.5 border rounded-xl text-sm bg-church-50">
@@ -301,7 +348,7 @@
         </div>
     </div>
 
-    <!-- MODAL 2: Member's "My Requests & Loans" Window -->
+    <!-- MODAL: Member's "My Requests" Window -->
     <div id="my-requests-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-xl w-full p-6 space-y-4 shadow-2xl border">
             <div class="flex items-center justify-between border-b pb-3">
@@ -317,7 +364,7 @@
         </div>
     </div>
 
-    <!-- MODAL 3: Book Details -->
+    <!-- MODAL: Book Details -->
     <div id="book-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl border">
             <div class="bg-church-100 px-6 py-4 flex items-center justify-between border-b">
@@ -344,19 +391,18 @@
                 </button>
                 <div class="space-x-2">
                     <button onclick="closeModal('book-modal')" class="px-4 py-2 border rounded-xl text-xs">Close</button>
-                    <button id="modal-action-btn" class="px-4 py-2 bg-church-800 text-white rounded-xl text-xs"></button>
+                    <button id="modal-action-btn" class="px-4 py-2 bg-church-800 text-white rounded-xl text-xs font-bold"></button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- MODAL 4: Strict Borrow Request Form -->
+    <!-- MODAL: Borrow Request Form -->
     <div id="borrow-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border">
             <h3 class="text-base font-bold text-church-900">Borrow Book Request</h3>
             <p class="text-xs text-church-600">Selected: <strong id="borrow-book-title" class="text-church-900"></strong></p>
             <p class="text-xs text-church-600">Borrower: <span id="borrow-member-info" class="font-medium text-church-800"></span></p>
-            
             <div class="grid grid-cols-2 gap-3 text-xs">
                 <div>
                     <label class="font-bold block mb-1">Pick-up Date</label>
@@ -367,17 +413,13 @@
                     <input id="borrow-pickup-time" type="time" value="10:00" class="w-full p-2 border rounded-lg bg-church-50">
                 </div>
             </div>
-
             <div class="text-xs">
-                <label class="font-bold block mb-1">Return Date (Max 14 Days, Minimum Same Day)</label>
+                <label class="font-bold block mb-1">Return Date (Max 14 Days)</label>
                 <input id="borrow-due-date" type="date" class="w-full p-2 border rounded-lg bg-church-50 font-bold text-church-900">
             </div>
-
             <div class="bg-amber-50 p-3 rounded-xl border border-amber-200 text-xs text-amber-900 space-y-1">
                 <p><strong>Location:</strong> Permanently in Church (Kiamunyi, Nakuru)</p>
-                <p id="borrow-duration-note" class="font-medium text-amber-800">Standard Duration: 14 days (2 weeks)</p>
             </div>
-
             <div class="flex justify-end space-x-2">
                 <button onclick="closeModal('borrow-modal')" class="px-4 py-2 border rounded-xl text-xs">Cancel</button>
                 <button id="btn-submit-borrow" onclick="submitBorrowRequest()" class="px-5 py-2 bg-church-800 text-white rounded-xl text-xs font-bold">Confirm Request</button>
@@ -385,7 +427,7 @@
         </div>
     </div>
 
-    <!-- MODAL 5: Onsite Reading Schedule -->
+    <!-- MODAL: Onsite Reading -->
     <div id="onsite-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border">
             <h3 class="text-base font-bold text-church-900">Schedule Onsite Reading</h3>
@@ -402,56 +444,47 @@
             </div>
             <div class="flex justify-end space-x-2">
                 <button onclick="closeModal('onsite-modal')" class="px-4 py-2 border rounded-xl text-xs">Cancel</button>
-                <button onclick="submitOnsiteSchedule()" class="px-5 py-2 bg-amber-700 text-white rounded-xl text-xs font-bold">Reserve Desk Slot</button>
+                <button onclick="submitOnsiteSchedule()" class="px-5 py-2 bg-amber-700 text-white rounded-xl text-xs font-bold">Reserve Slot</button>
             </div>
         </div>
     </div>
 
-    <!-- MODAL 6: Librarian Physical Issue (Book Condition Form) -->
+    <!-- MODAL: Physical Issue (Book Condition) -->
     <div id="issue-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl border">
             <h3 class="text-base font-bold text-church-900">Physical Book Checkout</h3>
             <p class="text-xs text-church-600">Book: <strong id="issue-modal-book"></strong></p>
             <p class="text-xs text-church-600">Borrower: <span id="issue-modal-member"></span></p>
-            
             <div class="text-xs">
                 <label class="font-bold block mb-1">Date Physically Handed Over</label>
                 <input id="issue-date-input" type="date" class="w-full p-2 border rounded-xl bg-church-50 font-bold">
             </div>
-
             <div>
                 <label class="text-xs font-bold block mb-1">Condition of Book Being Issued</label>
                 <select id="issue-condition-select" class="w-full p-2 border rounded-xl text-xs bg-church-50">
-                    <option value="New">New (Pristine condition)</option>
-                    <option value="Good">Good (Minor shelf wear)</option>
-                    <option value="Old">Old (Intact but aged pages)</option>
-                    <option value="Torn">Torn / Marked (Has noticeable tears/pencil markings)</option>
-                    <option value="Other">Other (Specify below)</option>
+                    <option value="New">New</option>
+                    <option value="Good">Good</option>
+                    <option value="Old">Old</option>
+                    <option value="Torn">Torn / Marked</option>
+                    <option value="Other">Other</option>
                 </select>
             </div>
-            <div id="issue-condition-other-box" class="hidden">
-                <input id="issue-condition-other" type="text" placeholder="Specify condition details..." class="w-full p-2 border rounded-xl text-xs">
-            </div>
-
             <div class="flex justify-end space-x-2 pt-2">
                 <button onclick="closeModal('issue-modal')" class="px-4 py-2 border rounded-xl text-xs">Cancel</button>
-                <button onclick="confirmAdminIssue()" class="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold">Confirm Physical Checkout</button>
+                <button onclick="confirmAdminIssue()" class="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold">Confirm Checkout</button>
             </div>
         </div>
     </div>
 
-    <!-- MODAL 7: Librarian Return Book Form -->
+    <!-- MODAL: Return Book -->
     <div id="return-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl border">
             <h3 class="text-base font-bold text-church-900">Process Returned Book</h3>
             <p class="text-xs text-church-600">Book: <strong id="return-modal-book"></strong></p>
-            <p class="text-xs text-church-600">Condition When Issued: <span id="return-modal-issued-cond" class="font-bold text-church-800"></span></p>
-            
             <div class="text-xs">
                 <label class="font-bold block mb-1">Return Date</label>
                 <input id="return-date-input" type="date" class="w-full p-2 border rounded-xl bg-church-50 font-bold">
             </div>
-
             <div>
                 <label class="text-xs font-bold block mb-1">Condition of Returned Book</label>
                 <select id="return-condition-select" class="w-full p-2 border rounded-xl text-xs bg-church-50">
@@ -464,13 +497,12 @@
             <div>
                 <label class="text-xs font-bold block mb-1">Penalty Warranted?</label>
                 <select id="return-penalty-select" class="w-full p-2 border rounded-xl text-xs bg-church-50">
-                    <option value="None">None (In good standing)</option>
+                    <option value="None">None</option>
                     <option value="Late Return Penalty">Late Return</option>
                     <option value="Damage / Repair Penalty">Damaged Book</option>
                     <option value="Lost Book Replacement">Lost Book</option>
                 </select>
             </div>
-
             <div class="flex justify-end space-x-2 pt-2">
                 <button onclick="closeModal('return-modal')" class="px-4 py-2 border rounded-xl text-xs">Cancel</button>
                 <button onclick="confirmAdminReturn()" class="px-5 py-2 bg-church-800 text-white rounded-xl text-xs font-bold">Complete Return</button>
@@ -478,27 +510,7 @@
         </div>
     </div>
 
-    <!-- MODAL 8: Edit Member Contact Details -->
-    <div id="edit-member-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-2xl border">
-            <h3 class="text-base font-bold text-church-900">Update Member Contact</h3>
-            <p class="text-xs text-church-600">Member: <strong id="edit-mem-name"></strong> (<span id="edit-mem-id"></span>)</p>
-            <div>
-                <label class="text-xs font-bold block mb-1">WhatsApp Phone Number</label>
-                <input id="edit-mem-phone" type="text" placeholder="+2547..." class="w-full p-2 border rounded-xl text-xs bg-church-50">
-            </div>
-            <div>
-                <label class="text-xs font-bold block mb-1">Email Address (Optional)</label>
-                <input id="edit-mem-email" type="email" placeholder="example@gmail.com" class="w-full p-2 border rounded-xl text-xs bg-church-50">
-            </div>
-            <div class="flex justify-end space-x-2 pt-2">
-                <button onclick="closeModal('edit-member-modal')" class="px-4 py-2 border rounded-xl text-xs">Cancel</button>
-                <button onclick="saveMemberContact()" class="px-5 py-2 bg-church-800 text-white rounded-xl text-xs font-bold">Save Contact</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL 9: Group Reading Details -->
+    <!-- MODAL: Group Reading Details -->
     <div id="group-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border">
             <h3 class="text-base font-bold text-church-900">👥 Group Reading Session</h3>
@@ -516,7 +528,7 @@
         </div>
     </div>
 
-    <!-- MODAL 10: Create Group Reading -->
+    <!-- MODAL: Create Group Reading -->
     <div id="create-group-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border">
             <h3 class="text-base font-bold text-church-900">Start a Group Reading Invite</h3>
@@ -535,6 +547,6 @@
         </div>
     </div>
 
-    <script src="script.js?v=5.0"></script>
+    <script src="script.js?v=6.0"></script>
 </body>
 </html>
