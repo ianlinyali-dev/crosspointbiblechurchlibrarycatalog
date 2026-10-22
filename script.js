@@ -13,11 +13,15 @@ let filteredBooks = [];
 let allMembers = [];
 let allBorrows = [];
 let allGroups = [];
+let allStorageStock = [];
+let allDistributionLogs = [];
+
 let displayedCount = 0;
 const BOOKS_PER_PAGE = 6;
 let currentUser = JSON.parse(localStorage.getItem('cbc_user')) || null;
 let isLibrarianActive = sessionStorage.getItem('cbc_librarian_active') === 'true';
 let activeBookForAction = null;
+let currentStorageSubTab = 'stock';
 
 // Track user's intent to resume seamlessly after login
 let pendingActionType = null; // 'borrow', 'onsite', 'createGroup'
@@ -41,13 +45,13 @@ document.addEventListener('DOMContentLoaded', () => {
     updateUserAuthUI();
     updateLibrarianUI();
 
-    // 1. INSTANT FAST LOAD: Load local books.json immediately (0.05s)
+    // 1. Instant Fast Load from local books.json
     loadInstantLocalCatalog();
 
-    // 2. BACKGROUND SYNC: Fetch live copies and borrows from Google Sheets
+    // 2. Background Sync from Google Sheets
     fetchLibraryData();
 
-    // Search and category listeners
+    // Search and filter listeners
     const searchInput = document.getElementById('search-input');
     const categoryFilter = document.getElementById('category-filter');
     if (searchInput) searchInput.addEventListener('input', handleSearchAndFilter);
@@ -83,7 +87,7 @@ function formatPhoneForWhatsApp(phone) {
     return clean.length >= 10 ? clean : null;
 }
 
-// DYNAMIC INVENTORY CALCULATION
+// Dynamic Inventory Calculation for Public Catalog
 function calculateAvailableCopies(bookId, fallbackCopies) {
     const book = allBooks.find(b => b.id == bookId);
     const total = book ? (parseInt(book.totalCopies) || parseInt(book.copies) || 1) : (parseInt(fallbackCopies) || 1);
@@ -119,6 +123,8 @@ function fetchLibraryData() {
             allMembers = data.members || [];
             allBorrows = data.borrows || [];
             allGroups = data.groups || [];
+            allStorageStock = data.storageStock || [];
+            allDistributionLogs = data.distributionLogs || [];
 
             if (currentUser) {
                 const refreshed = allMembers.find(m => (m.MemberID || '').toString().toUpperCase() === currentUser.id.toUpperCase());
@@ -300,7 +306,7 @@ function updateUserAuthUI() {
     if (mobileContainer) mobileContainer.innerHTML = html;
 }
 
-// SMART LOGIN WITH INTENT AUTO-RESUME
+// Intent Auto-Resume Login
 function loginMember() {
     const id = document.getElementById('login-id').value.trim().toUpperCase();
     const name = document.getElementById('login-name').value.trim().toLowerCase();
@@ -327,7 +333,6 @@ function loginMember() {
         closeModal('login-modal');
         checkUserDueAlerts();
 
-        // AUTO-RESUME INTENT: Open what the user originally wanted without making them click again!
         if (pendingActionType && activeBookForAction) {
             const actionToResume = pendingActionType;
             pendingActionType = null;
@@ -374,8 +379,8 @@ function openMyRequestsModal() {
         list.innerHTML = myLoans.map(b => {
             let statusBadge = '';
             const st = (b.Status || '').trim();
-            if (st === 'Pending') statusBadge = `<span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-bold">🟡 Pending Approval</span>`;
-            else if (st === 'Approved') statusBadge = `<span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold">🔵 Approved (Ready for Pickup)</span>`;
+            if (st === 'Pending') statusBadge = `<span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-bold">🟡 Pending</span>`;
+            else if (st === 'Approved') statusBadge = `<span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold">🔵 Approved</span>`;
             else if (st === 'Active') statusBadge = `<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold">🟢 Active Loan (Due: ${cleanDate(b.DueDate)})</span>`;
             else if (st === 'Cancelled') statusBadge = `<span class="bg-red-100 text-red-700 px-2 py-0.5 rounded font-bold">❌ Cancelled</span>`;
             else statusBadge = `<span class="bg-gray-100 text-gray-700 px-2 py-0.5 rounded">Returned</span>`;
@@ -407,12 +412,9 @@ function checkUserDueAlerts() {
     }
 }
 
-// CLEAN MODAL HANDOFF: Closes the book details modal and opens sign-in cleanly
 function requireMemberAuth(actionName, actionType) {
     if (!currentUser) {
         pendingActionType = actionType;
-        
-        // Cleanly dismiss the book details modal so the sign-in modal is completely unobstructed
         closeModal('book-modal');
         
         const bookTitle = activeBookForAction ? `"${activeBookForAction.title}"` : 'this book';
@@ -425,7 +427,6 @@ function requireMemberAuth(actionName, actionType) {
     return true;
 }
 
-// Book Modal Actions
 function openBookModal(book) {
     activeBookForAction = book;
     document.getElementById('modal-title').textContent = book.title;
@@ -690,8 +691,9 @@ function updateLibrarianUI() {
     }
 }
 
+// SWITCH ADMIN TABS (5 TABS)
 function switchAdminTab(tabName) {
-    const tabs = ['circulation', 'members', 'analytics'];
+    const tabs = ['circulation', 'stock', 'storage', 'members', 'analytics'];
     tabs.forEach(t => {
         const win = document.getElementById(`admin-window-${t}`);
         const btn = document.getElementById(`tab-btn-${t}`);
@@ -705,7 +707,11 @@ function switchAdminTab(tabName) {
         }
     });
 
-    if (tabName === 'analytics') {
+    if (tabName === 'stock') {
+        renderStockAuditTable();
+    } else if (tabName === 'storage') {
+        renderStorageTables();
+    } else if (tabName === 'analytics') {
         applyAnalyticsTimelineFilter();
     }
 }
@@ -747,6 +753,8 @@ function renderCirculationCounts() {
 function renderAdminTables() {
     renderCirculationCounts();
     renderCirculationTable();
+    renderStockAuditTable();
+    renderStorageTables();
     renderMembersTable();
     applyAnalyticsTimelineFilter();
 }
@@ -833,6 +841,507 @@ function renderCirculationTable() {
     }).join('');
 }
 
+// CATALOG STOCK AUDIT (TAB 2)
+function getFilteredStockBooks() {
+    const q = (document.getElementById('stock-search-input')?.value || '').toLowerCase().trim();
+    const cat = document.getElementById('stock-category-filter')?.value || '';
+    const classif = document.getElementById('stock-classification-filter')?.value || '';
+    const availFilter = document.getElementById('stock-availability-filter')?.value || '';
+
+    return allBooks.filter(book => {
+        if (q) {
+            const mTitle = (book.title || '').toLowerCase().includes(q);
+            const mAuthor = (book.author || '').toLowerCase().includes(q);
+            const mId = (book.id || '').toString().includes(q);
+            if (!mTitle && !mAuthor && !mId) return false;
+        }
+
+        if (cat && book.category !== cat) return false;
+
+        if (classif) {
+            const isBorrow = (book.classification || '').toLowerCase().includes('borrowable');
+            if (classif === 'Borrowable' && !isBorrow) return false;
+            if (classif === 'Onsite' && isBorrow) return false;
+        }
+
+        const available = calculateAvailableCopies(book.id, book.copies);
+        if (availFilter === 'available' && available <= 0) return false;
+        if (availFilter === 'low' && available !== 1) return false;
+        if (availFilter === 'out' && available !== 0) return false;
+
+        return true;
+    });
+}
+
+function renderStockAuditTable() {
+    const tbody = document.getElementById('stock-audit-tbody');
+    if (!tbody) return;
+
+    let totalCopiesSum = 0;
+    let onLoanSum = 0;
+    let availableSum = 0;
+
+    allBooks.forEach(b => {
+        const total = parseInt(b.totalCopies) || parseInt(b.copies) || 1;
+        const avail = calculateAvailableCopies(b.id, total);
+        const onLoan = Math.max(0, total - avail);
+
+        totalCopiesSum += total;
+        onLoanSum += onLoan;
+        availableSum += avail;
+    });
+
+    document.getElementById('stock-kpi-titles').textContent = allBooks.length;
+    document.getElementById('stock-kpi-total-copies').textContent = totalCopiesSum;
+    document.getElementById('stock-kpi-loaned').textContent = onLoanSum;
+    document.getElementById('stock-kpi-available').textContent = availableSum;
+
+    const filteredStock = getFilteredStockBooks();
+
+    if (filteredStock.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-church-500 italic">No books match the selected stock filters.</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = filteredStock.map(book => {
+        const total = parseInt(book.totalCopies) || parseInt(book.copies) || 1;
+        const available = calculateAvailableCopies(book.id, total);
+        const onLoan = Math.max(0, total - available);
+        const timesBorrowed = allBorrows.filter(b => b.BookID == book.id && b.Status !== 'Cancelled').length;
+
+        let statusBadge = '';
+        if (available > 1) {
+            statusBadge = `<span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold text-[10px]">In Stock</span>`;
+        } else if (available === 1) {
+            statusBadge = `<span class="bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-bold text-[10px]">Low (1 Left)</span>`;
+        } else {
+            statusBadge = `<span class="bg-red-100 text-red-700 px-2 py-0.5 rounded font-bold text-[10px]">Out of Stock</span>`;
+        }
+
+        const isBorrowable = (book.classification || '').toLowerCase().includes('borrowable');
+        const classBadge = isBorrowable ? 
+            `<span class="bg-emerald-50 text-emerald-900 border border-emerald-200 px-1.5 py-0.5 rounded text-[10px] font-medium">Borrowable</span>` :
+            `<span class="bg-amber-50 text-amber-900 border border-amber-200 px-1.5 py-0.5 rounded text-[10px] font-medium">Onsite Desk</span>`;
+
+        return `
+            <tr class="hover:bg-church-50 transition">
+                <td class="p-3 font-mono font-bold text-church-800">#${book.id}</td>
+                <td class="p-3">
+                    <p class="font-bold text-church-900">${book.title}</p>
+                    <p class="text-[10px] text-church-600">By ${book.author}</p>
+                </td>
+                <td class="p-3 text-church-700 font-medium">${book.category}</td>
+                <td class="p-3">${classBadge}</td>
+                <td class="p-3 text-center font-bold text-church-900">${total}</td>
+                <td class="p-3 text-center font-bold text-amber-800">${onLoan}</td>
+                <td class="p-3 text-center font-bold ${available > 0 ? 'text-emerald-700' : 'text-red-600'}">${available}</td>
+                <td class="p-3 text-center font-semibold text-church-800 bg-church-50/50">${timesBorrowed}</td>
+                <td class="p-3 text-right">${statusBadge}</td>
+            </tr>`;
+    }).join('');
+}
+
+function exportStockReportCSV() {
+    const filteredStock = getFilteredStockBooks();
+    if (filteredStock.length === 0) {
+        alert("No stock items to export based on current filters.");
+        return;
+    }
+
+    const headers = ["Book ID", "Title", "Author", "Category", "Access Rule", "Total Copies", "On Loan", "Available on Shelf", "Total Times Borrowed", "Stock Status"];
+    const rows = filteredStock.map(b => {
+        const total = parseInt(b.totalCopies) || parseInt(b.copies) || 1;
+        const available = calculateAvailableCopies(b.id, total);
+        const onLoan = Math.max(0, total - available);
+        const timesBorrowed = allBorrows.filter(brw => brw.BookID == b.id && brw.Status !== 'Cancelled').length;
+        const status = available > 1 ? "In Stock" : (available === 1 ? "Low Stock (1 Left)" : "Out of Stock");
+
+        return [
+            `"${b.id}"`, `"${(b.title || '').replace(/"/g, '""')}"`, `"${(b.author || '').replace(/"/g, '""')}"`,
+            `"${(b.category || '').replace(/"/g, '""')}"`, `"${(b.classification || 'Borrowable').replace(/"/g, '""')}"`,
+            total, onLoan, available, timesBorrowed, `"${status}"`
+        ];
+    });
+
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(r => r.join(","))].join("\r\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `CBC_Library_Stock_Report_${todayStr}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
+function printStockReport() {
+    const printContent = document.getElementById('stock-printable-area');
+    if (!printContent) return;
+
+    const todayStr = new Date().toLocaleDateString('en-KE', { dateStyle: 'full' });
+    const win = window.open('', '', 'height=750,width=1000');
+    win.document.write(`
+        <html>
+            <head>
+                <title>Crosspoint Bible Church Library - Stock Audit Report</title>
+                <style>
+                    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 25px; color: #1c1917; }
+                    h2 { margin: 0; font-size: 20px; font-weight: bold; }
+                    p { margin: 4px 0 16px; font-size: 12px; color: #57534e; }
+                    table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 15px; }
+                    th, td { border: 1px solid #d6d3d1; padding: 6px 8px; text-align: left; }
+                    th { background-color: #f5f5f4; font-weight: bold; text-transform: uppercase; font-size: 10px; }
+                    .center { text-align: center; }
+                    .right { text-align: right; }
+                </style>
+            </head>
+            <body>
+                <h2>Crosspoint Bible Church Library — Physical Stock Audit</h2>
+                <p>Location: Kiamunyi (Zaburi), Nakuru | Generated on: ${todayStr} | Coordinator: ${churchLibrarySettings.adminName}</p>
+                ${printContent.innerHTML}
+            </body>
+        </html>
+    `);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); win.close(); }, 300);
+}
+
+// STORAGE & DISTRIBUTION INVENTORY (TAB 3)
+function switchStorageSubTab(tab) {
+    currentStorageSubTab = tab;
+    const isStock = tab === 'stock';
+
+    document.getElementById('storage-view-stock')?.classList.toggle('hidden', !isStock);
+    document.getElementById('storage-view-dist')?.classList.toggle('hidden', isStock);
+
+    const btnStock = document.getElementById('subtab-storage-stock');
+    const btnDist = document.getElementById('subtab-storage-dist');
+
+    if (btnStock && btnDist) {
+        if (isStock) {
+            btnStock.className = "px-3 py-1 rounded-lg text-xs font-bold bg-church-800 text-white";
+            btnDist.className = "px-3 py-1 rounded-lg text-xs font-bold bg-church-100 text-church-800 hover:bg-church-200";
+        } else {
+            btnStock.className = "px-3 py-1 rounded-lg text-xs font-bold bg-church-100 text-church-800 hover:bg-church-200";
+            btnDist.className = "px-3 py-1 rounded-lg text-xs font-bold bg-church-800 text-white";
+        }
+    }
+}
+
+function getFilteredStorageStock() {
+    const q = (document.getElementById('storage-search-input')?.value || '').toLowerCase().trim();
+    const acq = document.getElementById('storage-acq-filter')?.value || '';
+    const statusFilter = document.getElementById('storage-status-filter')?.value || '';
+
+    return allStorageStock.filter(item => {
+        if (q) {
+            const mTitle = (item.Title || '').toLowerCase().includes(q);
+            const mAuthor = (item.Author || '').toLowerCase().includes(q);
+            const mSource = (item.Source || '').toLowerCase().includes(q);
+            if (!mTitle && !mAuthor && !mSource) return false;
+        }
+
+        if (acq && (item.AcquisitionType || '').toLowerCase() !== acq.toLowerCase()) return false;
+
+        const remaining = parseInt(item.RemainingStock) || 0;
+        if (statusFilter === 'available' && remaining <= 0) return false;
+        if (statusFilter === 'depleted' && remaining > 0) return false;
+
+        return true;
+    });
+}
+
+function renderStorageTables() {
+    const stockTbody = document.getElementById('storage-stock-tbody');
+    const distTbody = document.getElementById('storage-dist-tbody');
+    const distCountBadge = document.getElementById('count-dist-logs');
+
+    if (distCountBadge) distCountBadge.textContent = allDistributionLogs.length;
+
+    let totalReceived = 0;
+    let totalDistributed = 0;
+    let totalRemaining = 0;
+
+    allStorageStock.forEach(item => {
+        totalReceived += parseInt(item.TotalReceived) || 0;
+        totalDistributed += parseInt(item.TotalDistributed) || 0;
+        totalRemaining += parseInt(item.RemainingStock) || 0;
+    });
+
+    document.getElementById('storage-kpi-titles').textContent = allStorageStock.length;
+    document.getElementById('storage-kpi-received').textContent = totalReceived;
+    document.getElementById('storage-kpi-distributed').textContent = totalDistributed;
+    document.getElementById('storage-kpi-remaining').textContent = totalRemaining;
+
+    if (stockTbody) {
+        const filtered = getFilteredStorageStock();
+        if (filtered.length === 0) {
+            stockTbody.innerHTML = `<tr><td colspan="9" class="p-6 text-center text-church-500 italic">No storage books match the current query. Click "Stock Intake" to add items.</td></tr>`;
+        } else {
+            stockTbody.innerHTML = filtered.map(item => {
+                const remaining = parseInt(item.RemainingStock) || 0;
+                return `
+                    <tr class="hover:bg-church-50 transition">
+                        <td class="p-3 font-mono font-bold text-church-700">${item.ItemID}</td>
+                        <td class="p-3">
+                            <p class="font-bold text-church-900">${item.Title}</p>
+                            <p class="text-[10px] text-church-600">By ${item.Author || 'Unknown'} • <span class="italic text-church-700">${item.Category || 'General'}</span></p>
+                        </td>
+                        <td class="p-3">
+                            <p class="font-semibold text-church-900">${item.AcquisitionType || 'Donation'}</p>
+                            <p class="text-[10px] text-church-600 font-medium">Source: ${item.Source || 'Church'}</p>
+                        </td>
+                        <td class="p-3 text-church-700">${cleanDate(item.DateReceived)}</td>
+                        <td class="p-3 text-center font-bold text-church-900">${item.TotalReceived}</td>
+                        <td class="p-3 text-center font-bold text-amber-800">${item.TotalDistributed}</td>
+                        <td class="p-3 text-center font-bold ${remaining > 0 ? 'text-emerald-700' : 'text-red-600'}">${remaining}</td>
+                        <td class="p-3 text-church-600 text-[11px]">${item.Notes || 'Storage Shelf'}</td>
+                        <td class="p-3 text-right">
+                            ${remaining > 0 ? `
+                                <button onclick="openStorageDistributeModal('${item.ItemID}')" class="bg-amber-700 hover:bg-amber-800 text-white font-bold px-2.5 py-1 rounded-lg text-xs transition">
+                                    Distribute
+                                </button>
+                            ` : `<span class="text-xs text-red-600 font-bold">Depleted</span>`}
+                        </td>
+                    </tr>`;
+            }).join('');
+        }
+    }
+
+    if (distTbody) {
+        if (allDistributionLogs.length === 0) {
+            distTbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-church-500 italic">No distribution events have been logged yet.</td></tr>`;
+        } else {
+            distTbody.innerHTML = allDistributionLogs.map(log => `
+                <tr class="hover:bg-church-50 transition">
+                    <td class="p-3 font-mono font-bold text-church-700">${log.LogID}</td>
+                    <td class="p-3 font-bold text-church-900">${log.BookTitle}</td>
+                    <td class="p-3 font-semibold text-church-800">${log.Recipient}</td>
+                    <td class="p-3 text-center font-bold text-amber-800">${log.Quantity} copies</td>
+                    <td class="p-3 text-church-700">${cleanDate(log.Date)}</td>
+                    <td class="p-3 text-church-600">${log.Notes || 'Outreach / Gift'}</td>
+                </tr>
+            `).join('');
+        }
+    }
+}
+
+function openStorageIntakeModal() {
+    document.getElementById('intake-title').value = '';
+    document.getElementById('intake-author').value = '';
+    document.getElementById('intake-source').value = '';
+    document.getElementById('intake-copies').value = '10';
+    document.getElementById('intake-date').value = new Date().toISOString().split('T')[0];
+    document.getElementById('intake-notes').value = '';
+    document.getElementById('storage-intake-modal').classList.remove('hidden');
+}
+
+function submitStorageIntake() {
+    const title = document.getElementById('intake-title').value.trim();
+    const author = document.getElementById('intake-author').value.trim();
+    const category = document.getElementById('intake-category').value;
+    const acqType = document.getElementById('intake-acq-type').value;
+    const source = document.getElementById('intake-source').value.trim();
+    const copies = parseInt(document.getElementById('intake-copies').value) || 1;
+    const date = document.getElementById('intake-date').value;
+    const notes = document.getElementById('intake-notes').value.trim();
+
+    if (!title) {
+        alert("Please enter the book title.");
+        return;
+    }
+
+    const tempId = "STK-" + new Date().getTime();
+    const newItem = {
+        ItemID: tempId,
+        Title: title,
+        Author: author || "Unknown",
+        Category: category,
+        AcquisitionType: acqType,
+        Source: source || "Church Ministry",
+        DateReceived: date,
+        TotalReceived: copies,
+        TotalDistributed: 0,
+        RemainingStock: copies,
+        Notes: notes
+    };
+
+    allStorageStock.unshift(newItem);
+    closeModal('storage-intake-modal');
+    renderStorageTables();
+    alert(`Storage batch for "${title}" (${copies} copies) recorded!`);
+
+    fetch(API_URL, {
+        method: "POST",
+        body: JSON.stringify({
+            action: "addStorageItem",
+            title: title,
+            author: author,
+            category: category,
+            acquisitionType: acqType,
+            source: source,
+            totalReceived: copies,
+            dateReceived: date,
+            notes: notes
+        })
+    }).catch(e => console.warn(e));
+}
+
+function openStorageDistributeModal(preselectedItemId) {
+    const selectEl = document.getElementById('dist-item-select');
+    selectEl.innerHTML = allStorageStock.filter(i => (parseInt(i.RemainingStock) || 0) > 0).map(item => `
+        <option value="${item.ItemID}" ${preselectedItemId === item.ItemID ? 'selected' : ''}>
+            ${item.Title} (Remaining: ${item.RemainingStock} copies)
+        </option>
+    `).join('');
+
+    if (selectEl.options.length === 0) {
+        alert("There are no storage books with available stock to distribute.");
+        return;
+    }
+
+    document.getElementById('dist-recipient').value = '';
+    document.getElementById('dist-qty').value = '1';
+    document.getElementById('dist-date').value = new Date().toISOString().split('T')[0];
+    document.getElementById('dist-notes').value = '';
+    updateDistributionMax();
+
+    document.getElementById('storage-distribute-modal').classList.remove('hidden');
+}
+
+function updateDistributionMax() {
+    const selectEl = document.getElementById('dist-item-select');
+    const selectedId = selectEl.value;
+    const item = allStorageStock.find(i => i.ItemID === selectedId);
+    const qtyInput = document.getElementById('dist-qty');
+    const hint = document.getElementById('dist-available-hint');
+
+    if (item) {
+        const remaining = parseInt(item.RemainingStock) || 0;
+        qtyInput.max = remaining;
+        hint.textContent = `Available in storage: ${remaining} copies.`;
+    }
+}
+
+function submitDistributionRecord() {
+    const selectEl = document.getElementById('dist-item-select');
+    const itemId = selectEl.value;
+    const item = allStorageStock.find(i => i.ItemID === itemId);
+
+    if (!item) return;
+
+    const recipient = document.getElementById('dist-recipient').value.trim();
+    const qty = parseInt(document.getElementById('dist-qty').value) || 1;
+    const date = document.getElementById('dist-date').value;
+    const notes = document.getElementById('dist-notes').value.trim();
+    const currentRemaining = parseInt(item.RemainingStock) || 0;
+
+    if (!recipient) {
+        alert("Please enter the recipient, group, or ministry.");
+        return;
+    }
+
+    if (qty > currentRemaining) {
+        alert(`Cannot give out ${qty} copies. Only ${currentRemaining} copies remaining in storage!`);
+        return;
+    }
+
+    item.TotalDistributed = (parseInt(item.TotalDistributed) || 0) + qty;
+    item.RemainingStock = Math.max(0, (parseInt(item.TotalReceived) || 0) - item.TotalDistributed);
+
+    allDistributionLogs.unshift({
+        LogID: "DST-" + new Date().getTime(),
+        ItemID: item.ItemID,
+        BookTitle: item.Title,
+        Recipient: recipient,
+        Quantity: qty,
+        Date: date,
+        Notes: notes
+    });
+
+    closeModal('storage-distribute-modal');
+    renderStorageTables();
+    alert(`Distribution of ${qty} copies of "${item.Title}" to "${recipient}" recorded!`);
+
+    fetch(API_URL, {
+        method: "POST",
+        body: JSON.stringify({
+            action: "logDistribution",
+            itemId: item.ItemID,
+            recipient: recipient,
+            quantity: qty,
+            date: date,
+            notes: notes
+        })
+    }).catch(e => console.warn(e));
+}
+
+function exportStorageReportCSV() {
+    if (allStorageStock.length === 0) {
+        alert("No storage inventory data available to export.");
+        return;
+    }
+
+    const headers = ["Item ID", "Title", "Author", "Category", "Acquisition Type", "Source / Donor", "Date Received", "Total Received", "Total Distributed", "Remaining Stock", "Storage Notes"];
+    const rows = allStorageStock.map(i => [
+        `"${i.ItemID}"`, `"${(i.Title || '').replace(/"/g, '""')}"`, `"${(i.Author || '').replace(/"/g, '""')}"`,
+        `"${(i.Category || '').replace(/"/g, '""')}"`, `"${(i.AcquisitionType || '').replace(/"/g, '""')}"`,
+        `"${(i.Source || '').replace(/"/g, '""')}"`, `"${cleanDate(i.DateReceived)}"`,
+        i.TotalReceived, i.TotalDistributed, i.RemainingStock, `"${(i.Notes || '').replace(/"/g, '""')}"`
+    ]);
+
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(r => r.join(","))].join("\r\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `CBC_Storage_Distribution_Report_${todayStr}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
+function printStorageReport() {
+    const printContent = document.getElementById('storage-view-stock');
+    if (!printContent) return;
+
+    const todayStr = new Date().toLocaleDateString('en-KE', { dateStyle: 'full' });
+    const win = window.open('', '', 'height=750,width=1000');
+    win.document.write(`
+        <html>
+            <head>
+                <title>Crosspoint Bible Church - Storage & Distribution Stock Audit</title>
+                <style>
+                    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 25px; color: #1c1917; }
+                    h2 { margin: 0; font-size: 20px; font-weight: bold; }
+                    p { margin: 4px 0 16px; font-size: 12px; color: #57534e; }
+                    table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 15px; }
+                    th, td { border: 1px solid #d6d3d1; padding: 6px 8px; text-align: left; }
+                    th { background-color: #f5f5f4; font-weight: bold; text-transform: uppercase; font-size: 10px; }
+                    .center { text-align: center; }
+                    .right { text-align: right; }
+                </style>
+            </head>
+            <body>
+                <h2>Crosspoint Bible Church — Storage & Distribution Inventory</h2>
+                <p>Church Benevolence & Mission Stock | Kiamunyi, Nakuru | Generated: ${todayStr}</p>
+                ${printContent.innerHTML}
+            </body>
+        </html>
+    `);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); win.close(); }, 300);
+}
+
+// Members Table
 function renderMembersTable() {
     const tbody = document.getElementById('admin-members-tbody');
     if (!tbody) return;
@@ -909,6 +1418,7 @@ function adminApproveRequest(borrowId, bookId, type, phone, name, title) {
 
     renderCirculationCounts();
     renderCirculationTable();
+    renderStockAuditTable();
     initCatalog();
 
     if (phone && confirm("Request approved! Open WhatsApp to notify member?")) {
@@ -940,6 +1450,7 @@ function adminCancelRequest(borrowId, bookId, type, name, title) {
 
     renderCirculationCounts();
     renderCirculationTable();
+    renderStockAuditTable();
     initCatalog();
 
     fetch(API_URL, {
@@ -979,6 +1490,7 @@ function confirmAdminIssue() {
     closeModal('issue-modal');
     renderCirculationCounts();
     renderCirculationTable();
+    renderStockAuditTable();
     initCatalog();
 
     fetch(API_URL, {
@@ -1018,6 +1530,7 @@ function confirmAdminReturn() {
     closeModal('return-modal');
     renderCirculationCounts();
     renderCirculationTable();
+    renderStockAuditTable();
     initCatalog();
 
     fetch(API_URL, {
@@ -1355,7 +1868,13 @@ function closeModal(id) {
 }
 
 window.addEventListener('click', (e) => {
-    const ids = ['login-modal', 'book-modal', 'borrow-modal', 'onsite-modal', 'issue-modal', 'return-modal', 'group-modal', 'create-group-modal', 'my-requests-modal', 'edit-member-modal', 'admin-settings-modal', 'policy-modal', 'all-groups-modal', 'admin-pin-modal'];
+    const ids = [
+        'login-modal', 'book-modal', 'borrow-modal', 'onsite-modal', 
+        'issue-modal', 'return-modal', 'group-modal', 'create-group-modal', 
+        'my-requests-modal', 'edit-member-modal', 'admin-settings-modal', 
+        'policy-modal', 'all-groups-modal', 'admin-pin-modal',
+        'storage-intake-modal', 'storage-distribute-modal'
+    ];
     ids.forEach(id => {
         const el = document.getElementById(id);
         if (el && e.target === el) el.classList.add('hidden');
