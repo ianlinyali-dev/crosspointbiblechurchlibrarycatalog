@@ -4,7 +4,7 @@
 
 const API_URL = "https://script.google.com/macros/s/AKfycbxbdtpv-cAJVkvVHUSC_dspsRQWjkL0PwS4wrAm7Mc0ZcIAGXTxkqlX7-2b8n0y2gzVZg/exec";
 
-// Master metadata cache (prevents N/A pages)
+// Master metadata cache (prevents N/A pages & preserves keywords)
 let localBooksMetadata = [];
 
 // App State
@@ -156,12 +156,23 @@ function fetchLibraryData() {
         });
 }
 
+// EDIT 1 APPLIED: Normalizes book, preserving all metadata & keywords
 function normalizeBook(raw) {
     const total = parseInt(raw.TotalCopies) || parseInt(raw.copies) || 1;
     const bId = raw.id || raw.BookID || 1;
 
+    // Cross-reference with master JSON to avoid missing metadata
     const master = localBooksMetadata.find(b => b.id == bId || b.title == (raw.title || raw.Title));
     const pagesCount = (raw.Pages && raw.Pages !== 'N/A' && raw.Pages !== 0) ? raw.Pages : (master ? master.pages : (raw.pages || 'N/A'));
+
+    // Extract and preserve all keywords (handles arrays or comma-separated strings)
+    let rawKeywords = raw.keywords || raw.Keywords || (master ? master.keywords : []);
+    let parsedKeywords = [];
+    if (Array.isArray(rawKeywords)) {
+        parsedKeywords = rawKeywords.map(k => String(k).trim()).filter(Boolean);
+    } else if (typeof rawKeywords === 'string' && rawKeywords.trim()) {
+        parsedKeywords = rawKeywords.split(',').map(k => k.trim()).filter(Boolean);
+    }
 
     return {
         id: bId,
@@ -174,7 +185,8 @@ function normalizeBook(raw) {
         pages: pagesCount,
         classification: raw.classification || raw.Classification || (master ? master.classification : 'Borrowable'),
         description: raw.description || raw.Description || (master ? master.description : ''),
-        image: raw.image || raw.ImageURL || (master ? master.image : 'images/churchdiscipline.jpeg')
+        image: raw.image || raw.ImageURL || (master ? master.image : 'images/churchdiscipline.jpeg'),
+        keywords: parsedKeywords // Full keywords array attached
     };
 }
 
@@ -265,17 +277,63 @@ function loadMoreBooks() {
     }
 }
 
+// EDIT 2 APPLIED: Comprehensive Search across Keywords, Title, Author, Category & Multi-words
 function handleSearchAndFilter() {
-    const query = document.getElementById('search-input').value.toLowerCase().trim();
-    const cat = document.getElementById('category-filter').value;
+    const query = (document.getElementById('search-input')?.value || '').toLowerCase().trim();
+    const cat = document.getElementById('category-filter')?.value || '';
+    const queryNoSpaces = query.replace(/\s+/g, '');
 
     filteredBooks = allBooks.filter(book => {
-        const matchesQuery = 
-            (book.title || '').toLowerCase().includes(query) ||
-            (book.author || '').toLowerCase().includes(query) ||
-            (book.category || '').toLowerCase().includes(query);
-        const matchesCat = cat === "" || (book.category || '') === cat;
-        return matchesQuery && matchesCat;
+        // 1. Category Filter Check
+        const matchesCat = (cat === "") || (book.category === cat);
+        if (!matchesCat) return false;
+
+        // If search bar is blank, only category filter applies
+        if (!query) return true;
+
+        const title = (book.title || '').toLowerCase();
+        const author = (book.author || '').toLowerCase();
+        const category = (book.category || '').toLowerCase();
+        const description = (book.description || '').toLowerCase();
+        const keywords = Array.isArray(book.keywords) 
+            ? book.keywords.map(k => String(k).toLowerCase()) 
+            : [];
+
+        // 2. Direct Field Search (Title, Author, Category, Description)
+        if (
+            title.includes(query) ||
+            author.includes(query) ||
+            category.includes(query) ||
+            description.includes(query)
+        ) {
+            return true;
+        }
+
+        // 3. Deep Keyword Match (exact match, partial match, and whitespace-agnostic e.g. "9marks" vs "9 marks")
+        const keywordMatch = keywords.some(kw => {
+            const kwNoSpaces = kw.replace(/\s+/g, '');
+            return kw.includes(query) || 
+                   query.includes(kw) || 
+                   kwNoSpaces.includes(queryNoSpaces) || 
+                   queryNoSpaces.includes(kwNoSpaces);
+        });
+
+        if (keywordMatch) return true;
+
+        // 4. Multi-word Search (e.g. typing "Leeman Discipline" matches if both terms are found across title/author/keywords)
+        const terms = query.split(/\s+/).filter(Boolean);
+        if (terms.length > 1) {
+            const allTermsMatch = terms.every(term => 
+                title.includes(term) ||
+                author.includes(term) ||
+                category.includes(term) ||
+                description.includes(term) ||
+                keywords.some(kw => kw.includes(term))
+            );
+            if (allTermsMatch) return true;
+        }
+
+        return false;
     });
 
     initCatalog();
@@ -691,7 +749,7 @@ function updateLibrarianUI() {
     }
 }
 
-// SWITCH ADMIN TABS (5 TABS)
+// SWITCH ADMIN TABS (5 TABS: circulation, stock, storage, members, analytics)
 function switchAdminTab(tabName) {
     const tabs = ['circulation', 'stock', 'storage', 'members', 'analytics'];
     tabs.forEach(t => {
