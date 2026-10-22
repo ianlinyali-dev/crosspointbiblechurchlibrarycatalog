@@ -30,7 +30,7 @@
 </head>
 <body class="bg-church-50 text-church-900 font-sans antialiased flex flex-col min-h-screen">
 
-    <!-- Top Hideable Announcement Alert Bar (Mobile-Friendly Wrapping) -->
+    <!-- Top Announcement Alert Bar -->
     <div id="alert-banner" class="bg-amber-100 border-b border-amber-200 text-amber-900 px-4 py-2.5 text-xs sm:text-sm transition-all duration-300">
         <div class="max-w-7xl mx-auto flex items-start sm:items-center justify-between gap-2">
             <div class="flex items-center space-x-2">
@@ -78,7 +78,7 @@
             </button>
         </div>
 
-        <!-- Mobile Navigation Menu (Includes Sign In & Librarian Buttons) -->
+        <!-- Mobile Navigation Menu -->
         <div id="mobile-menu" class="hidden md:hidden bg-white border-b border-church-200 px-4 pt-2 pb-4 space-y-3">
             <div id="mobile-user-auth-badge" class="pb-2 border-b border-church-100"></div>
             <a href="#catalog" onclick="document.getElementById('mobile-menu').classList.add('hidden')" class="block py-2 text-church-900 hover:bg-church-50 rounded px-2 font-medium">Catalog</a>
@@ -96,7 +96,7 @@
         </div>
     </header>
 
-    <!-- Hero Section with Scripture & J.C. Ryle Reformed Quotes -->
+    <!-- Hero Section -->
     <section class="bg-gradient-to-b from-church-100 to-church-50 py-10 px-4 sm:px-6 lg:px-8 border-b border-church-200">
         <div class="max-w-4xl mx-auto text-center space-y-5">
             <span class="inline-block bg-church-200 text-church-800 text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wider">
@@ -105,7 +105,6 @@
             <h2 class="text-2xl sm:text-4xl font-extrabold text-church-900 tracking-tight">Equipping the Saints Through Sound Doctrine</h2>
             
             <div class="grid md:grid-cols-2 gap-5 text-left mt-6">
-                <!-- Scripture Quote -->
                 <div class="bg-white/95 backdrop-blur border border-church-200 p-5 rounded-2xl shadow-sm">
                     <p class="text-xs uppercase tracking-wider text-church-600 font-bold mb-2">
                         <i class="fa-solid fa-quote-left mr-1"></i> Scripture Inspiration
@@ -115,7 +114,6 @@
                     </p>
                     <p class="text-xs font-semibold text-church-700 mt-3">— 1 Timothy 4:13, 15</p>
                 </div>
-                <!-- J.C. Ryle Quote -->
                 <div class="bg-white/95 backdrop-blur border border-church-200 p-5 rounded-2xl shadow-sm">
                     <p class="text-xs uppercase tracking-wider text-church-600 font-bold mb-2">
                         <i class="fa-solid fa-book-open-reader mr-1"></i> Reformed Wisdom
@@ -131,7 +129,6 @@
 
     <!-- Main Content: Catalog Section -->
     <main id="catalog" class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
-        <!-- Search & Filter Controls -->
         <div class="bg-white p-5 rounded-2xl shadow-sm border border-church-200 mb-8">
             <div class="flex flex-col md:flex-row gap-4 items-center justify-between">
                 <div class="relative w-full md:w-1/2">
@@ -156,10 +153,8 @@
             </div>
         </div>
 
-        <!-- Book Cards Grid -->
         <div id="book-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
 
-        <!-- Pagination -->
         <div id="load-more-container" class="hidden text-center mt-12">
             <button id="load-more-btn" onclick="loadMoreBooks()" class="bg-church-100 hover:bg-church-200 text-church-900 border border-church-300 font-semibold px-6 py-2.5 rounded-xl text-sm transition">
                 Load More Books <i class="fa-solid fa-chevron-down ml-2 text-xs"></i>
@@ -182,9 +177,7 @@
         </div>
     </section>
 
-    <!-- ======================================================== -->
-    <!-- LIBRARIAN CONSOLE -->
-    <!-- ======================================================== -->
+    <!-- Librarian Console -->
     <section id="admin-panel" class="hidden bg-white border-t-4 border-church-800 shadow-2xl py-8 px-4 sm:px-6 lg:px-8">
         <div class="max-w-7xl mx-auto space-y-6">
             <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b pb-4">
@@ -218,7 +211,7 @@
                 </button>
             </div>
 
-            <!-- WINDOW 1: CIRCULATION DESK -->
+            <!-- Circulation Table -->
             <div id="admin-window-circulation" class="space-y-4">
                 <div class="flex flex-wrap gap-2">
                     <button onclick="filterCirculationStatus('All')" class="circ-filter-btn active text-xs px-3 py-1.5 rounded-lg bg-church-200 font-bold">All (<span id="count-all">0</span>)</button>
@@ -247,7 +240,7 @@
                 </div>
             </div>
 
-            <!-- WINDOW 2: MEMBERS MANAGEMENT (No Email Field) -->
+            <!-- Members Management -->
             <div id="admin-window-members" class="hidden space-y-5">
                 <div class="bg-church-50 p-4 rounded-2xl border border-church-200 space-y-3">
                     <h3 class="text-xs font-bold text-church-900 uppercase tracking-wider">Register New Library Member</h3>
@@ -284,7 +277,7 @@
                 </div>
             </div>
 
-            <!-- WINDOW 3: TIMELINE & ANALYTICS -->
+            <!-- Timeline & Analytics -->
             <div id="admin-window-analytics" class="hidden space-y-6">
                 <div class="bg-church-50 p-4 rounded-2xl border border-church-200 space-y-3">
                     <h3 class="text-xs font-bold text-church-900 uppercase tracking-wider">Specify Borrowing Timeline & Filter</h3>
@@ -343,7 +336,7 @@
         </div>
     </section>
 
-    <!-- Rich 3-Column Footer with Contact Info & Policies -->
+    <!-- Footer -->
     <footer id="about-us" class="bg-church-900 text-church-100 pt-12 pb-8 border-t border-church-800 mt-auto">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
             <div class="space-y-3">
@@ -373,11 +366,38 @@
         </div>
     </footer>
 
-    <!-- ==================== STYLED MODALS ==================== -->
+    <!-- ==================== MODALS WITH STRICT Z-INDEX STACKING ==================== -->
 
-    <!-- PROFESSIONAL ADMIN PIN MODAL (Replaces browser prompt) -->
-    <div id="admin-pin-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-2xl border border-church-200 animate-in fade-in duration-200">
+    <!-- FOREGROUND MODAL: MEMBER SIGN IN (z-[70] Always on Top) -->
+    <div id="login-modal" class="fixed inset-0 z-[70] hidden bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-2xl border border-church-200 animate-in fade-in zoom-in-95 duration-150">
+            <div class="flex items-start justify-between">
+                <div>
+                    <h3 class="text-base font-extrabold text-church-900 flex items-center gap-1.5">
+                        <i class="fa-solid fa-id-card text-amber-800"></i> Member Sign In
+                    </h3>
+                    <p id="login-modal-notice" class="text-xs text-church-600 mt-1">Please sign in with your registered Member ID and Full Name to access borrowing privileges.</p>
+                </div>
+                <button onclick="closeModal('login-modal')" class="text-church-600 hover:text-church-900 text-xl font-bold p-1 leading-none">&times;</button>
+            </div>
+            <div>
+                <label class="text-[11px] font-bold uppercase text-church-700">Member ID</label>
+                <input id="login-id" type="text" placeholder="e.g. CBC-001" class="w-full mt-1 p-2.5 border rounded-xl text-sm bg-church-50 font-bold focus:ring-2 focus:ring-church-800 focus:outline-none">
+            </div>
+            <div>
+                <label class="text-[11px] font-bold uppercase text-church-700">Full Name</label>
+                <input id="login-name" type="text" placeholder="e.g. Ian Luyali" class="w-full mt-1 p-2.5 border rounded-xl text-sm bg-church-50 font-medium focus:ring-2 focus:ring-church-800 focus:outline-none">
+            </div>
+            <div class="flex justify-end space-x-2 pt-2">
+                <button onclick="closeModal('login-modal')" class="px-4 py-2 border rounded-xl text-xs font-semibold hover:bg-church-50 transition">Cancel</button>
+                <button onclick="loginMember()" class="px-5 py-2 bg-church-800 hover:bg-church-900 text-white rounded-xl text-xs font-bold shadow transition">Sign In</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- FOREGROUND MODAL: ADMIN PIN (z-[70] Always on Top) -->
+    <div id="admin-pin-modal" class="fixed inset-0 z-[70] hidden bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-2xl border border-church-200 animate-in fade-in zoom-in-95 duration-150">
             <div class="text-center space-y-1">
                 <div class="w-12 h-12 bg-amber-100 text-amber-800 rounded-full flex items-center justify-center mx-auto text-xl shadow-sm">
                     <i class="fa-solid fa-shield-halved"></i>
@@ -396,117 +416,12 @@
         </div>
     </div>
 
-    <!-- MODAL: Policy & Terms Modal -->
-    <div id="policy-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl border border-church-200">
-            <div class="bg-church-100 px-6 py-4 flex items-center justify-between border-b border-church-200">
-                <h3 id="policy-modal-title" class="font-bold text-church-900 text-lg">Policy Title</h3>
-                <button onclick="closeModal('policy-modal')" class="text-church-600 hover:text-church-900 text-xl font-bold p-1 focus:outline-none">&times;</button>
-            </div>
-            <div id="policy-modal-body" class="p-6 space-y-4 max-h-[75vh] overflow-y-auto text-xs sm:text-sm text-church-800 leading-relaxed"></div>
-            <div class="bg-church-50 px-6 py-4 border-t border-church-200 flex justify-end">
-                <button onclick="closeModal('policy-modal')" class="px-5 py-2 bg-church-800 hover:bg-church-900 text-white rounded-xl text-sm font-medium shadow transition">Got it</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL: All Active Groups Directory -->
-    <div id="all-groups-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl max-w-xl w-full p-6 space-y-4 shadow-2xl border">
-            <div class="flex items-center justify-between border-b pb-3">
-                <h3 class="text-base font-bold text-church-900 flex items-center gap-2">
-                    <i class="fa-solid fa-users text-amber-700"></i> Active Group Reading Circles
-                </h3>
-                <button onclick="closeModal('all-groups-modal')" class="text-church-600 text-lg font-bold">&times;</button>
-            </div>
-            <div id="all-groups-list" class="max-h-[60vh] overflow-y-auto space-y-3 text-xs"></div>
-            <div class="flex justify-end pt-2">
-                <button onclick="closeModal('all-groups-modal')" class="px-4 py-2 bg-church-800 text-white rounded-xl text-xs font-semibold">Close</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL: Admin Settings -->
-    <div id="admin-settings-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-2xl border">
-            <h3 class="text-base font-bold text-church-900 flex items-center gap-2">
-                <i class="fa-solid fa-gear text-church-700"></i> Library Admin Settings
-            </h3>
-            <div>
-                <label class="text-[11px] font-bold uppercase text-church-700">Librarian Coordinator Name</label>
-                <input id="setting-admin-name" type="text" placeholder="e.g. Library Coordinator" class="w-full mt-1 p-2 border rounded-xl text-xs bg-church-50">
-            </div>
-            <div>
-                <label class="text-[11px] font-bold uppercase text-church-700">Church Library WhatsApp / Phone</label>
-                <input id="setting-admin-phone" type="text" placeholder="+254 704 486 616" class="w-full mt-1 p-2 border rounded-xl text-xs bg-church-50">
-            </div>
-            <div class="flex justify-end space-x-2 pt-2">
-                <button onclick="closeModal('admin-settings-modal')" class="px-4 py-2 border rounded-xl text-xs">Cancel</button>
-                <button onclick="saveAdminSettings()" class="px-5 py-2 bg-church-800 text-white rounded-xl text-xs font-bold">Save Settings</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL: Edit Member Contact (Phone Only) -->
-    <div id="edit-member-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-2xl border">
-            <h3 class="text-base font-bold text-church-900">Update Borrower Phone</h3>
-            <p class="text-xs text-church-600">Member: <strong id="edit-mem-name"></strong> (<span id="edit-mem-id"></span>)</p>
-            <div>
-                <label class="text-xs font-bold block mb-1">WhatsApp Phone Number</label>
-                <input id="edit-mem-phone" type="text" placeholder="e.g. 0712345678" class="w-full p-2.5 border rounded-xl text-xs bg-church-50 font-bold">
-            </div>
-            <div class="flex justify-end space-x-2 pt-2">
-                <button onclick="closeModal('edit-member-modal')" class="px-4 py-2 border rounded-xl text-xs">Cancel</button>
-                <button onclick="saveMemberContact()" class="px-5 py-2 bg-church-800 text-white rounded-xl text-xs font-bold">Save Phone</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL: Member Sign In -->
-    <div id="login-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-xl border">
-            <div class="space-y-1">
-                <h3 class="text-base font-bold text-church-900">Member Sign In</h3>
-                <p id="login-modal-notice" class="text-xs text-church-600">Please sign in with your registered Member ID and Full Name to access library privileges.</p>
-            </div>
-            <div>
-                <label class="text-[11px] font-bold uppercase text-church-700">Member ID</label>
-                <input id="login-id" type="text" placeholder="e.g. CBC-001" class="w-full mt-1 p-2.5 border rounded-xl text-sm bg-church-50">
-            </div>
-            <div>
-                <label class="text-[11px] font-bold uppercase text-church-700">Full Name</label>
-                <input id="login-name" type="text" placeholder="e.g. Ian Luyali" class="w-full mt-1 p-2.5 border rounded-xl text-sm bg-church-50">
-            </div>
-            <div class="flex justify-end space-x-2 pt-2">
-                <button onclick="closeModal('login-modal')" class="px-4 py-2 border rounded-xl text-xs">Cancel</button>
-                <button onclick="loginMember()" class="px-5 py-2 bg-church-800 text-white rounded-xl text-xs font-bold">Sign In</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL: Member's "My Requests" Window -->
-    <div id="my-requests-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl max-w-xl w-full p-6 space-y-4 shadow-2xl border">
-            <div class="flex items-center justify-between border-b pb-3">
-                <h3 class="text-base font-bold text-church-900 flex items-center gap-2">
-                    <i class="fa-solid fa-book-bookmark text-church-700"></i> My Borrow Requests & Loans
-                </h3>
-                <button onclick="closeModal('my-requests-modal')" class="text-church-600 text-lg font-bold">&times;</button>
-            </div>
-            <div id="my-requests-list" class="max-h-[60vh] overflow-y-auto space-y-2 text-xs"></div>
-            <div class="flex justify-end pt-2">
-                <button onclick="closeModal('my-requests-modal')" class="px-4 py-2 bg-church-800 text-white rounded-xl text-xs font-semibold">Close</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL: Book Details -->
+    <!-- BASE MODAL: Book Details (z-50) -->
     <div id="book-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl border">
             <div class="bg-church-100 px-6 py-4 flex items-center justify-between border-b">
                 <h3 id="modal-title" class="font-bold text-church-900 text-base truncate"></h3>
-                <button onclick="closeModal('book-modal')" class="text-church-600 text-xl font-bold">&times;</button>
+                <button onclick="closeModal('book-modal')" class="text-church-600 hover:text-church-900 text-xl font-bold">&times;</button>
             </div>
             <div class="p-6 space-y-4 max-h-[70vh] overflow-y-auto text-sm">
                 <div class="flex gap-4">
@@ -527,15 +442,15 @@
                     <i class="fa-solid fa-users mr-1"></i> Start Group Reading
                 </button>
                 <div class="space-x-2">
-                    <button onclick="closeModal('book-modal')" class="px-4 py-2 border rounded-xl text-xs">Close</button>
-                    <button id="modal-action-btn" class="px-4 py-2 bg-church-800 text-white rounded-xl text-xs font-bold"></button>
+                    <button onclick="closeModal('book-modal')" class="px-4 py-2 border rounded-xl text-xs font-semibold hover:bg-church-100">Close</button>
+                    <button id="modal-action-btn" class="px-4 py-2 bg-church-800 hover:bg-church-900 text-white rounded-xl text-xs font-bold transition"></button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- MODAL: Borrow Request Form -->
-    <div id="borrow-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <!-- ACTION MODAL: Borrow Request Form (z-[60]) -->
+    <div id="borrow-modal" class="fixed inset-0 z-[60] hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border">
             <h3 class="text-base font-bold text-church-900">Borrow Book Request</h3>
             <p class="text-xs text-church-600">Selected: <strong id="borrow-book-title" class="text-church-900"></strong></p>
@@ -558,14 +473,14 @@
                 <p><strong>Location:</strong> Permanently in Church (Kiamunyi, Nakuru)</p>
             </div>
             <div class="flex justify-end space-x-2">
-                <button onclick="closeModal('borrow-modal')" class="px-4 py-2 border rounded-xl text-xs">Cancel</button>
-                <button id="btn-submit-borrow" onclick="submitBorrowRequest()" class="px-5 py-2 bg-church-800 text-white rounded-xl text-xs font-bold">Confirm Request</button>
+                <button onclick="closeModal('borrow-modal')" class="px-4 py-2 border rounded-xl text-xs font-semibold">Cancel</button>
+                <button id="btn-submit-borrow" onclick="submitBorrowRequest()" class="px-5 py-2 bg-church-800 hover:bg-church-900 text-white rounded-xl text-xs font-bold transition">Confirm Request</button>
             </div>
         </div>
     </div>
 
-    <!-- MODAL: Onsite Reading -->
-    <div id="onsite-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <!-- ACTION MODAL: Onsite Reading (z-[60]) -->
+    <div id="onsite-modal" class="fixed inset-0 z-[60] hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border">
             <h3 class="text-base font-bold text-church-900">Schedule Onsite Reading</h3>
             <p class="text-xs text-church-600">Book: <strong id="onsite-book-title"></strong> (Onsite Study Desk Only)</p>
@@ -580,14 +495,14 @@
                 </div>
             </div>
             <div class="flex justify-end space-x-2">
-                <button onclick="closeModal('onsite-modal')" class="px-4 py-2 border rounded-xl text-xs">Cancel</button>
-                <button onclick="submitOnsiteSchedule()" class="px-5 py-2 bg-amber-700 text-white rounded-xl text-xs font-bold">Reserve Slot</button>
+                <button onclick="closeModal('onsite-modal')" class="px-4 py-2 border rounded-xl text-xs font-semibold">Cancel</button>
+                <button onclick="submitOnsiteSchedule()" class="px-5 py-2 bg-amber-700 hover:bg-amber-800 text-white rounded-xl text-xs font-bold transition">Reserve Slot</button>
             </div>
         </div>
     </div>
 
-    <!-- MODAL: Physical Issue (Book Condition) -->
-    <div id="issue-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <!-- MODAL: Physical Issue (z-[60]) -->
+    <div id="issue-modal" class="fixed inset-0 z-[60] hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl border">
             <h3 class="text-base font-bold text-church-900">Physical Book Checkout</h3>
             <p class="text-xs text-church-600">Book: <strong id="issue-modal-book"></strong></p>
@@ -607,14 +522,14 @@
                 </select>
             </div>
             <div class="flex justify-end space-x-2 pt-2">
-                <button onclick="closeModal('issue-modal')" class="px-4 py-2 border rounded-xl text-xs">Cancel</button>
-                <button onclick="confirmAdminIssue()" class="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold">Confirm Checkout</button>
+                <button onclick="closeModal('issue-modal')" class="px-4 py-2 border rounded-xl text-xs font-semibold">Cancel</button>
+                <button onclick="confirmAdminIssue()" class="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition">Confirm Checkout</button>
             </div>
         </div>
     </div>
 
-    <!-- MODAL: Return Book -->
-    <div id="return-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <!-- MODAL: Return Book (z-[60]) -->
+    <div id="return-modal" class="fixed inset-0 z-[60] hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl border">
             <h3 class="text-base font-bold text-church-900">Process Returned Book</h3>
             <p class="text-xs text-church-600">Book: <strong id="return-modal-book"></strong></p>
@@ -641,13 +556,45 @@
                 </select>
             </div>
             <div class="flex justify-end space-x-2 pt-2">
-                <button onclick="closeModal('return-modal')" class="px-4 py-2 border rounded-xl text-xs">Cancel</button>
-                <button onclick="confirmAdminReturn()" class="px-5 py-2 bg-church-800 text-white rounded-xl text-xs font-bold">Complete Return</button>
+                <button onclick="closeModal('return-modal')" class="px-4 py-2 border rounded-xl text-xs font-semibold">Cancel</button>
+                <button onclick="confirmAdminReturn()" class="px-5 py-2 bg-church-800 hover:bg-church-900 text-white rounded-xl text-xs font-bold transition">Complete Return</button>
             </div>
         </div>
     </div>
 
-    <!-- MODAL: Group Reading Details -->
+    <!-- MODAL: Edit Member Contact (z-[60]) -->
+    <div id="edit-member-modal" class="fixed inset-0 z-[60] hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-2xl border">
+            <h3 class="text-base font-bold text-church-900">Update Borrower Phone</h3>
+            <p class="text-xs text-church-600">Member: <strong id="edit-mem-name"></strong> (<span id="edit-mem-id"></span>)</p>
+            <div>
+                <label class="text-xs font-bold block mb-1">WhatsApp Phone Number</label>
+                <input id="edit-mem-phone" type="text" placeholder="e.g. 0712345678" class="w-full p-2.5 border rounded-xl text-xs bg-church-50 font-bold">
+            </div>
+            <div class="flex justify-end space-x-2 pt-2">
+                <button onclick="closeModal('edit-member-modal')" class="px-4 py-2 border rounded-xl text-xs font-semibold">Cancel</button>
+                <button onclick="saveMemberContact()" class="px-5 py-2 bg-church-800 hover:bg-church-900 text-white rounded-xl text-xs font-bold transition">Save Phone</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Member's "My Requests" (z-[60]) -->
+    <div id="my-requests-modal" class="fixed inset-0 z-[60] hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-xl w-full p-6 space-y-4 shadow-2xl border">
+            <div class="flex items-center justify-between border-b pb-3">
+                <h3 class="text-base font-bold text-church-900 flex items-center gap-2">
+                    <i class="fa-solid fa-book-bookmark text-church-700"></i> My Borrow Requests & Loans
+                </h3>
+                <button onclick="closeModal('my-requests-modal')" class="text-church-600 hover:text-church-900 text-lg font-bold">&times;</button>
+            </div>
+            <div id="my-requests-list" class="max-h-[60vh] overflow-y-auto space-y-2 text-xs"></div>
+            <div class="flex justify-end pt-2">
+                <button onclick="closeModal('my-requests-modal')" class="px-4 py-2 bg-church-800 hover:bg-church-900 text-white rounded-xl text-xs font-semibold">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Group Reading Details (z-50) -->
     <div id="group-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border">
             <h3 class="text-base font-bold text-church-900">👥 Group Reading Session</h3>
@@ -659,14 +606,14 @@
                 <p id="grp-notes"></p>
             </div>
             <div class="flex justify-end space-x-2">
-                <button onclick="closeModal('group-modal')" class="px-4 py-2 border rounded-xl text-xs">Close</button>
-                <button id="btn-join-group" class="px-5 py-2 bg-church-800 text-white rounded-xl text-xs font-bold">Join Group</button>
+                <button onclick="closeModal('group-modal')" class="px-4 py-2 border rounded-xl text-xs font-semibold">Close</button>
+                <button id="btn-join-group" class="px-5 py-2 bg-church-800 hover:bg-church-900 text-white rounded-xl text-xs font-bold transition">Join Group</button>
             </div>
         </div>
     </div>
 
-    <!-- MODAL: Create Group Reading -->
-    <div id="create-group-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <!-- MODAL: Create Group Reading (z-[60]) -->
+    <div id="create-group-modal" class="fixed inset-0 z-[60] hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border">
             <h3 class="text-base font-bold text-church-900">Start a Group Reading Invite</h3>
             <div>
@@ -675,15 +622,66 @@
             </div>
             <div>
                 <label class="text-[11px] font-bold block mb-1">Meeting Plan</label>
-                <textarea id="create-grp-notes" rows="3" class="w-full p-2 border rounded-lg text-xs bg-church-50" placeholder="Specify days and location..."></textarea>
+                <textarea id="create-grp-notes" rows="3" class="w-full p-2 border rounded-lg text-xs bg-church-50" placeholder="Specify meeting day and time at church..."></textarea>
             </div>
             <div class="flex justify-end space-x-2">
-                <button onclick="closeModal('create-group-modal')" class="px-4 py-2 border rounded-xl text-xs">Cancel</button>
-                <button onclick="submitCreateGroup()" class="px-5 py-2 bg-church-800 text-white rounded-xl text-xs font-bold">Publish Invite</button>
+                <button onclick="closeModal('create-group-modal')" class="px-4 py-2 border rounded-xl text-xs font-semibold">Cancel</button>
+                <button onclick="submitCreateGroup()" class="px-5 py-2 bg-church-800 hover:bg-church-900 text-white rounded-xl text-xs font-bold transition">Publish Invite</button>
             </div>
         </div>
     </div>
 
-    <script src="script.js?v=8.0"></script>
+    <!-- MODAL: All Active Groups (z-50) -->
+    <div id="all-groups-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-xl w-full p-6 space-y-4 shadow-2xl border">
+            <div class="flex items-center justify-between border-b pb-3">
+                <h3 class="text-base font-bold text-church-900 flex items-center gap-2">
+                    <i class="fa-solid fa-users text-amber-700"></i> Active Group Reading Circles
+                </h3>
+                <button onclick="closeModal('all-groups-modal')" class="text-church-600 hover:text-church-900 text-lg font-bold">&times;</button>
+            </div>
+            <div id="all-groups-list" class="max-h-[60vh] overflow-y-auto space-y-3 text-xs"></div>
+            <div class="flex justify-end pt-2">
+                <button onclick="closeModal('all-groups-modal')" class="px-4 py-2 bg-church-800 hover:bg-church-900 text-white rounded-xl text-xs font-semibold">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Admin Settings (z-[60]) -->
+    <div id="admin-settings-modal" class="fixed inset-0 z-[60] hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-2xl border">
+            <h3 class="text-base font-bold text-church-900 flex items-center gap-2">
+                <i class="fa-solid fa-gear text-church-700"></i> Library Admin Settings
+            </h3>
+            <div>
+                <label class="text-[11px] font-bold uppercase text-church-700">Librarian Coordinator Name</label>
+                <input id="setting-admin-name" type="text" placeholder="e.g. Library Coordinator" class="w-full mt-1 p-2 border rounded-xl text-xs bg-church-50">
+            </div>
+            <div>
+                <label class="text-[11px] font-bold uppercase text-church-700">Church Library WhatsApp / Phone</label>
+                <input id="setting-admin-phone" type="text" placeholder="+254 704 486 616" class="w-full mt-1 p-2 border rounded-xl text-xs bg-church-50">
+            </div>
+            <div class="flex justify-end space-x-2 pt-2">
+                <button onclick="closeModal('admin-settings-modal')" class="px-4 py-2 border rounded-xl text-xs font-semibold">Cancel</button>
+                <button onclick="saveAdminSettings()" class="px-5 py-2 bg-church-800 hover:bg-church-900 text-white rounded-xl text-xs font-bold transition">Save Settings</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Policy & Terms (z-[60]) -->
+    <div id="policy-modal" class="fixed inset-0 z-[60] hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl border border-church-200">
+            <div class="bg-church-100 px-6 py-4 flex items-center justify-between border-b border-church-200">
+                <h3 id="policy-modal-title" class="font-bold text-church-900 text-lg">Policy Title</h3>
+                <button onclick="closeModal('policy-modal')" class="text-church-600 hover:text-church-900 text-xl font-bold p-1">&times;</button>
+            </div>
+            <div id="policy-modal-body" class="p-6 space-y-4 max-h-[75vh] overflow-y-auto text-xs sm:text-sm text-church-800 leading-relaxed"></div>
+            <div class="bg-church-50 px-6 py-4 border-t border-church-200 flex justify-end">
+                <button onclick="closeModal('policy-modal')" class="px-5 py-2 bg-church-800 hover:bg-church-900 text-white rounded-xl text-sm font-medium shadow transition">Got it</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js?v=9.0"></script>
 </body>
 </html>
