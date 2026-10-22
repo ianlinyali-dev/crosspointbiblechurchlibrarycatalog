@@ -19,6 +19,9 @@ let currentUser = JSON.parse(localStorage.getItem('cbc_user')) || null;
 let isLibrarianActive = sessionStorage.getItem('cbc_librarian_active') === 'true';
 let activeBookForAction = null;
 
+// Track user's intent to resume seamlessly after login
+let pendingActionType = null; // 'borrow', 'onsite', 'createGroup'
+
 // Modal Targets
 let targetIssueBorrow = null;
 let targetReturnBorrow = null;
@@ -59,7 +62,7 @@ function cleanDate(val) {
     return str;
 }
 
-// Helper: Clean time formatting (Removes 1899-12-30 bug)
+// Helper: Clean time formatting
 function cleanTime(val) {
     if (!val) return '10:00';
     let str = String(val).trim();
@@ -94,7 +97,6 @@ function calculateAvailableCopies(bookId, fallbackCopies) {
     return Math.max(0, total - activeLoans);
 }
 
-// Instant Fast Load from local books.json
 function loadInstantLocalCatalog() {
     fetch('books.json')
         .then(r => r.json())
@@ -109,7 +111,6 @@ function loadInstantLocalCatalog() {
         .catch(e => console.warn("Local JSON load error:", e));
 }
 
-// Background sync from Google Sheets API
 function fetchLibraryData() {
     fetch(`${API_URL}?action=getAllData`)
         .then(res => res.json())
@@ -133,7 +134,6 @@ function fetchLibraryData() {
                 filteredBooks = allBooks;
                 initCatalog();
             } else if (localBooksMetadata.length > 0) {
-                // Auto seed empty sheet
                 fetch(API_URL, {
                     method: "POST",
                     body: JSON.stringify({ action: "seedBooks", books: localBooksMetadata })
@@ -150,12 +150,10 @@ function fetchLibraryData() {
         });
 }
 
-// Normalizes book and cross-references missing pages from books.json
 function normalizeBook(raw) {
     const total = parseInt(raw.TotalCopies) || parseInt(raw.copies) || 1;
     const bId = raw.id || raw.BookID || 1;
 
-    // Cross-reference with local master json to prevent "N/A pages"
     const master = localBooksMetadata.find(b => b.id == bId || b.title == (raw.title || raw.Title));
     const pagesCount = (raw.Pages && raw.Pages !== 'N/A' && raw.Pages !== 0) ? raw.Pages : (master ? master.pages : (raw.pages || 'N/A'));
 
@@ -277,7 +275,6 @@ function handleSearchAndFilter() {
     initCatalog();
 }
 
-// User Auth Management (Desktop & Mobile Sync)
 function updateUserAuthUI() {
     const desktopContainer = document.getElementById('user-auth-badge');
     const mobileContainer = document.getElementById('mobile-user-auth-badge');
@@ -303,6 +300,7 @@ function updateUserAuthUI() {
     if (mobileContainer) mobileContainer.innerHTML = html;
 }
 
+// SMART LOGIN WITH INTENT AUTO-RESUME
 function loginMember() {
     const id = document.getElementById('login-id').value.trim().toUpperCase();
     const name = document.getElementById('login-name').value.trim().toLowerCase();
@@ -328,7 +326,31 @@ function loginMember() {
         updateUserAuthUI();
         closeModal('login-modal');
         checkUserDueAlerts();
-        alert(`Welcome back, ${currentUser.name}! You can borrow up to ${currentUser.designation === 'Pastor' ? '4' : '2'} books.`);
+
+        // AUTO-RESUME INTENT: Open what the user originally wanted without making them click again!
+        if (pendingActionType && activeBookForAction) {
+            const actionToResume = pendingActionType;
+            pendingActionType = null;
+
+            setTimeout(() => {
+                const isPastor = currentUser.designation.toLowerCase() === 'pastor';
+                const isOnsite = (activeBookForAction.classification || '').toLowerCase().includes('onsite');
+
+                if (actionToResume === 'borrow') {
+                    if (isOnsite && !isPastor) {
+                        openOnsiteScheduleForm();
+                    } else {
+                        openBorrowForm(isPastor && isOnsite);
+                    }
+                } else if (actionToResume === 'onsite') {
+                    openOnsiteScheduleForm();
+                } else if (actionToResume === 'createGroup') {
+                    openCreateGroupModal();
+                }
+            }, 150);
+        } else {
+            alert(`Welcome back, ${currentUser.name}! You can borrow up to ${currentUser.designation === 'Pastor' ? '4' : '2'} books.`);
+        }
     } else {
         alert("Credentials not found in church records. Please register with the librarian.");
     }
@@ -337,6 +359,7 @@ function loginMember() {
 function logoutUser() {
     localStorage.removeItem('cbc_user');
     currentUser = null;
+    pendingActionType = null;
     updateUserAuthUI();
 }
 
@@ -384,18 +407,25 @@ function checkUserDueAlerts() {
     }
 }
 
-// STRICT SIGN-IN RESTRICTION CHECK
-function requireMemberAuth(actionName) {
+// CLEAN MODAL HANDOFF: Closes the book details modal and opens sign-in cleanly
+function requireMemberAuth(actionName, actionType) {
     if (!currentUser) {
+        pendingActionType = actionType;
+        
+        // Cleanly dismiss the book details modal so the sign-in modal is completely unobstructed
+        closeModal('book-modal');
+        
+        const bookTitle = activeBookForAction ? `"${activeBookForAction.title}"` : 'this book';
         document.getElementById('login-modal-notice').innerHTML = 
-            `<strong>Sign-in Required:</strong> Please sign in with your registered Member ID to ${actionName}.`;
+            `<span class="text-amber-800 font-bold block mb-1"><i class="fa-solid fa-lock mr-1"></i> Sign-In Required</span> Please sign in with your registered Member ID and Full Name to ${actionName} for ${bookTitle}.`;
+
         openLoginModal();
         return false;
     }
     return true;
 }
 
-// Borrowing & Details Workflow
+// Book Modal Actions
 function openBookModal(book) {
     activeBookForAction = book;
     document.getElementById('modal-title').textContent = book.title;
@@ -426,7 +456,7 @@ function openBookModal(book) {
         actionBtn.className = "px-4 py-2 bg-church-800 hover:bg-church-900 text-white rounded-xl text-xs font-bold shadow transition";
         actionBtn.innerHTML = `<span>Request to Borrow</span>`;
         actionBtn.onclick = () => {
-            if (requireMemberAuth("request to borrow books")) {
+            if (requireMemberAuth("request to borrow", "borrow")) {
                 openBorrowForm(false);
             }
         };
@@ -435,7 +465,7 @@ function openBookModal(book) {
             actionBtn.className = "px-4 py-2 bg-purple-700 hover:bg-purple-800 text-white rounded-xl text-xs font-bold shadow transition";
             actionBtn.innerHTML = `<span>Borrow (Pastor Privilege)</span>`;
             actionBtn.onclick = () => {
-                if (requireMemberAuth("borrow onsite materials")) {
+                if (requireMemberAuth("borrow onsite materials", "borrow")) {
                     openBorrowForm(true);
                 }
             };
@@ -443,7 +473,7 @@ function openBookModal(book) {
             actionBtn.className = "px-4 py-2 bg-amber-700 hover:bg-amber-800 text-white rounded-xl text-xs font-bold shadow transition";
             actionBtn.innerHTML = `<span>Schedule Onsite Reading</span>`;
             actionBtn.onclick = () => {
-                if (requireMemberAuth("schedule an onsite reading desk")) {
+                if (requireMemberAuth("schedule an onsite reading desk", "onsite")) {
                     openOnsiteScheduleForm();
                 }
             };
@@ -542,7 +572,6 @@ function submitBorrowRequest() {
         dueDate: dueDate
     };
 
-    // Optimistic UI update
     const tempBorrowId = "BRW-" + new Date().getTime();
     allBorrows.unshift({
         BorrowID: tempBorrowId,
@@ -610,7 +639,7 @@ function submitOnsiteSchedule() {
         .then(() => fetchLibraryData());
 }
 
-// Professional Admin PIN Modal Controls
+// Professional Admin PIN Controls
 function openAdminPinModal() {
     if (isLibrarianActive) {
         exitLibrarianConsole();
@@ -874,7 +903,6 @@ function applyAnalyticsTimelineFilter() {
     document.getElementById('stat-top-book').textContent = topBook;
 }
 
-// Instant UI Action handlers
 function adminApproveRequest(borrowId, bookId, type, phone, name, title) {
     const borrow = allBorrows.find(b => b.BorrowID === borrowId);
     if (borrow) borrow.Status = 'Approved';
@@ -1029,7 +1057,6 @@ function adminExtendLoan(borrowId) {
     }).catch(e => console.warn(e));
 }
 
-// Register Member (Strictly Phone Only)
 function adminRegisterMember() {
     const id = document.getElementById('new-mem-id').value.trim().toUpperCase();
     const name = document.getElementById('new-mem-name').value.trim();
@@ -1120,7 +1147,6 @@ function deleteMember(id) {
     }).catch(e => console.warn(e));
 }
 
-// WhatsApp Notification Engine
 function triggerBorrowerWhatsApp(memberId, memberName, bookTitle, stage, dueDate) {
     const mem = allMembers.find(m => (m.MemberID || '').toString().toUpperCase() === memberId.toString().toUpperCase());
     const phone = mem && mem.Phone ? mem.Phone : null;
@@ -1159,7 +1185,6 @@ function sendWhatsAppDirect(phone, type, bookTitle, memberName, dueDate) {
     window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
-// Policy Modals (Terms & Privacy)
 function openPolicyModal(type) {
     const modalTitle = document.getElementById('policy-modal-title');
     const modalBody = document.getElementById('policy-modal-body');
@@ -1183,7 +1208,6 @@ function openPolicyModal(type) {
     document.getElementById('policy-modal').classList.remove('hidden');
 }
 
-// Group Reading Directory & Badges
 function updateGroupBadges() {
     const openGroups = allGroups.filter(g => g.Status === 'Open').length;
     const navEl = document.getElementById('nav-group-count');
@@ -1237,7 +1261,7 @@ function openGroupModal(groupId) {
 }
 
 function joinGroupReading(groupId) {
-    if (!requireMemberAuth("join a reading group")) return;
+    if (!requireMemberAuth("join a reading group", "joinGroup")) return;
 
     const group = allGroups.find(g => g.GroupID == groupId);
     if (!group) return;
@@ -1265,7 +1289,7 @@ function joinGroupReading(groupId) {
 }
 
 function openCreateGroupModal() {
-    if (!requireMemberAuth("start a group reading circle")) return;
+    if (!requireMemberAuth("start a group reading circle", "createGroup")) return;
     closeModal('book-modal');
     document.getElementById('create-group-modal').classList.remove('hidden');
 }
@@ -1307,7 +1331,6 @@ function submitCreateGroup() {
     }).catch(e => console.warn(e));
 }
 
-// Admin Settings
 function openAdminSettingsModal() {
     document.getElementById('setting-admin-name').value = churchLibrarySettings.adminName || '';
     document.getElementById('setting-admin-phone').value = churchLibrarySettings.adminPhone || '';
