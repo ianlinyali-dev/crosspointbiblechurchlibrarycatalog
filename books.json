@@ -59,7 +59,7 @@
     "publicationDate": "2017",
     "copies": 1,
     "pages": 1685,
-    "classification": "OnSite Only",
+    "classification": "Onsite Only",
     "description": "This updated edition of Strong’s Exhaustive Concordance enhances James Strong’s classic study tool for modern readers. It allows users to easily locate biblical words in the KJV, explore original Hebrew and Greek meanings using Strong's numbering, and navigate Scripture with updated dictionaries, maps, and clear edge-tab indexing.",
     "image": "images/strongs.jpeg",
     "keywords": ["Strong's", "concordance", "commentary"]
@@ -74,7 +74,7 @@
     "pages": 1950,
     "classification": "Onsite Only",
     "description": "The Bible is no ordinary book; it is the inspired, holy, and infallible 'voice of God' given to make us holy. As the superlative 'Norm of norms' and ultimate authority for life and faith, Scripture demands thoughtful study and meditation. The Reformation Study Bible guides disciples in deep reflection to transform knowledge into true obedience.",
-    "image": "images/biblereform.jpeg",
-    "keywords": ["Bible", "Reformation", "Commentary", "study", "bible"]
+    "image": "https://images.unsplash.com/photo-1544947950-fa07a98d237f?q=80&w=600&auto=format&fit=crop",
+    "keywords": ["Bible", "Reformation", "Commentary", "study"]
   }
 ]
